@@ -34,6 +34,34 @@ npm run coverage   # coverage report (text + tests/../coverage/index.html)
 
 See `tests/README.md` for how the test suite is organized and why.
 
+## Deploying (Cloudflare Pages)
+
+The game is a static site, so deploys are a plain directory upload — no
+build step. `.assetsignore` excludes everything that isn't part of the
+shipped game (tests, coverage, source art, docs, `node_modules`) from the
+upload.
+
+```bash
+npx wrangler login   # once, opens a browser to authorize this machine
+npm run deploy        # wrangler pages deploy . --project-name=ship-happens
+```
+
+The first deploy creates the `ship-happens` Pages project if it doesn't
+exist yet. `npm run pages:dev` serves the same directory locally through
+Wrangler's Pages emulator (`http://localhost:8788`) if you want to sanity
+check before deploying.
+
+`.github/workflows/deploy.yml` runs the test suite on every push/PR, and on
+push to `main` deploys straight to Cloudflare Pages via
+`cloudflare/wrangler-action`. That job needs two repo secrets set under
+Settings → Secrets and variables → Actions:
+
+- `CLOUDFLARE_API_TOKEN` — a token with the "Cloudflare Pages — Edit"
+  permission (create one at
+  [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)).
+- `CLOUDFLARE_ACCOUNT_ID` — found on the right-hand sidebar of any page in
+  the Cloudflare dashboard.
+
 ## Project layout
 
 - `index.html` / `css/style.css` — markup and styling for the HUD, panels,

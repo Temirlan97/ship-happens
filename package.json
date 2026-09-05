@@ -7,11 +7,14 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "pages:dev": "wrangler pages dev . --port 8788",
+    "deploy": "wrangler pages deploy . --project-name=ship-happens"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^5.0.0",
     "jsdom": "^30.0.1",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "wrangler": "^4.129.0"
   }
 }

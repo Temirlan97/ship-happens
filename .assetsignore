@@ -1,0 +1,15 @@
+node_modules
+coverage
+tests
+art-sources
+.git
+.gitignore
+.assetsignore
+package.json
+package-lock.json
+vitest.config.js
+README.md
+LICENSE
+CLAUDE.md
+AGENTS.md
+GEMINI.md
