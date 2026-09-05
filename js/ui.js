@@ -83,12 +83,17 @@
         ? `<div class="card-lock"><span class="lock-label">Locked</span></div>`
         : '';
       btn.innerHTML = `
-        <div class="card-cooldown" style="height:${s.roleLocked ? 0 : s.cooldownFraction * 100}%"></div>
+        <div class="card-cooldown"></div>
         ${lockHtml}
-        <div class="card-icon" style="background-image:url('assets/characters/${key}.png')"></div>
+        <div class="card-icon"></div>
         <div class="card-name">${def.name}</div>
         <div class="card-cost">${window.Game.fmt(s.cost)}</div>
       `;
+      // Set via the CSSOM (not an inline style="" attribute) so this stays
+      // compatible with the site's style-src 'self' CSP — inline style
+      // attributes are blocked by CSP, direct .style property writes aren't.
+      btn.querySelector('.card-cooldown').style.height = (s.roleLocked ? 0 : s.cooldownFraction * 100) + '%';
+      btn.querySelector('.card-icon').style.backgroundImage = `url('assets/characters/${key}.png')`;
       btn.addEventListener('click', (e) => { e.stopPropagation(); core.hireAt(desk.col, desk.row, key); });
       panel.appendChild(btn);
     });
