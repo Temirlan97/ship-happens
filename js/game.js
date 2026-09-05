@@ -277,7 +277,10 @@
     // of a hire — scaled off the tower's own current (rank-scaled) salary,
     // so letting go of someone senior costs more than a junior. Frees their
     // desk immediately, same as it was before they were ever hired.
+    // The coffee machine isn't a person on payroll — it's unplugged for
+    // free, not given a severance package.
     severanceCostFor(tower) {
+      if (tower.type === 'coffee') return 0;
       return Math.round(tower.salary * CFG.SEVERANCE_SALARY_MULT);
     },
     fireSelectedTower() {
@@ -291,9 +294,14 @@
       this.selectedTower = null;
       window.Game.Audio.payday();
       this.spawnParticles(tower.x, tower.y - 10, '#ff6b6b', 10, 70);
-      this.effects.push({ type: 'floatText', x: tower.x, y: tower.y - 50, life: 1.1, maxLife: 1.1, text: '-' + window.Game.fmt(severance), color: '#ff6b6b' });
+      if (severance > 0) {
+        this.effects.push({ type: 'floatText', x: tower.x, y: tower.y - 50, life: 1.1, maxLife: 1.1, text: '-' + window.Game.fmt(severance), color: '#ff6b6b' });
+      }
       window.Game.UI.updateUpgradePanel();
-      window.Game.UI.showToast(`${tower.def.name} let go — ${window.Game.fmt(severance)} severance paid.`);
+      const message = tower.type === 'coffee'
+        ? `${tower.def.name} removed.`
+        : `${tower.def.name} let go — ${window.Game.fmt(severance)} severance paid.`;
+      window.Game.UI.showToast(message);
     },
 
     cycleSpeed() {
@@ -334,9 +342,12 @@
       this.stats.lost += lost;
       window.Game.Audio.budgetStolen();
     },
+    // The coffee machine isn't a teammate an incident can pull away to
+    // firefight — it's excluded from the stun pool entirely.
     stunRandomTeammate(ms) {
-      if (!this.towers.length) return;
-      const v = this.towers[Math.floor(Math.random() * this.towers.length)];
+      const eligible = this.towers.filter(t => t.type !== 'coffee');
+      if (!eligible.length) return;
+      const v = eligible[Math.floor(Math.random() * eligible.length)];
       v.stunTimer = Math.max(v.stunTimer || 0, ms);
       window.Game.Audio.stun();
       this.spawnParticles(v.x, v.y - 10, '#ff9d3d', 8, 60);

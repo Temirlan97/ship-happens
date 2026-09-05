@@ -111,6 +111,13 @@ describe('Core.stunRandomTeammate', () => {
     Core.stunRandomTeammate(1000);
     expect(Core.towers[0].stunTimer).toBe(5000);
   });
+
+  it('never stuns the coffee machine — it is excluded from the eligible pool', () => {
+    Core.budget = CFG.TOWER_TYPES.coffee.cost;
+    Core.hireAt(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, 'coffee');
+    Core.stunRandomTeammate(3000);
+    expect(Core.towers[0].stunTimer).toBe(0);
+  });
 });
 
 describe('Core.applyStageTransition', () => {

@@ -233,11 +233,17 @@
     }
 
     // Firing is always available regardless of upgrade state — a maxed-out
-    // teammate can still be let go, same as a fresh hire.
+    // teammate can still be let go, same as a fresh hire. The coffee machine
+    // isn't a person, so it's just unplugged — no severance, different label.
     const severance = core.severanceCostFor(tower);
     const fireBtn = el('fireBtn');
-    fireBtn.textContent = `Fire (${window.Game.fmt(severance)})`;
-    fireBtn.disabled = core.budget < severance;
+    if (tower.type === 'coffee') {
+      fireBtn.textContent = 'Remove';
+      fireBtn.disabled = false;
+    } else {
+      fireBtn.textContent = `Fire (${window.Game.fmt(severance)})`;
+      fireBtn.disabled = core.budget < severance;
+    }
   }
 
   // Anchored above the tower's head (not centered on it) so promoting never

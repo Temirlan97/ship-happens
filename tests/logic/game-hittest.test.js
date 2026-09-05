@@ -186,6 +186,12 @@ describe('Core.severanceCostFor', () => {
     tower.level = 4;
     expect(Core.severanceCostFor(tower)).toBeGreaterThan(level1Severance);
   });
+
+  it('is free for the coffee machine — it is equipment, not a salaried person', () => {
+    Core.budget = CFG.TOWER_TYPES.coffee.cost;
+    Core.hireAt(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, 'coffee');
+    expect(Core.severanceCostFor(Core.towers[0])).toBe(0);
+  });
 });
 
 describe('Core.fireSelectedTower', () => {
@@ -243,5 +249,15 @@ describe('Core.fireSelectedTower', () => {
     Core.hireAt(d.col, d.row, 'pm');
     expect(Core.towers).toHaveLength(1);
     expect(Core.towers[0].type).toBe('pm');
+  });
+
+  it('removes the coffee machine for free, even with zero budget', () => {
+    Core.budget = CFG.TOWER_TYPES.coffee.cost;
+    Core.hireAt(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, 'coffee');
+    Core.selectedTower = Core.towers[0];
+    Core.budget = 0;
+    Core.fireSelectedTower();
+    expect(Core.towers).toHaveLength(0);
+    expect(Core.budget).toBe(0);
   });
 });

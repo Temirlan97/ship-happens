@@ -265,6 +265,16 @@ describe('UI.updateUpgradePanel', () => {
     UI.updateUpgradePanel();
     expect(el('fireBtn').disabled).toBe(false);
   });
+
+  it('shows "Remove" (not "Fire") with no cost for the coffee machine, and is never disabled', () => {
+    Core.budget = CFG.TOWER_TYPES.coffee.cost;
+    Core.hireAt(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, 'coffee');
+    Core.selectedTower = Core.towers[0];
+    Core.budget = 0; // even broke, removal is free and always available
+    UI.updateUpgradePanel();
+    expect(el('fireBtn').textContent).toBe('Remove');
+    expect(el('fireBtn').disabled).toBe(false);
+  });
 });
 
 describe('UI.init wires the fire button', () => {
