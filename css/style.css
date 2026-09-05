@@ -85,6 +85,7 @@ html, body {
   padding: 6px 28px;
   box-shadow: 0 6px 24px rgba(0,0,0,0.45);
 }
+.countdown-banner.hidden { display: none; }
 .countdown-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; color: #ff8a8a; }
 .countdown-value {
   font-size: 48px;

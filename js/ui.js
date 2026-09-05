@@ -137,18 +137,20 @@
     if (w.tier === 0) el('sprintValue').textContent = `${Math.max(0, w.displayWaveNumber)} / ${CFG.CAMPAIGN_SPRINTS}`;
     else el('sprintValue').textContent = `${w.displayWaveNumber} · Scale-Up`;
 
+    // Only relevant between sprints — while one is active there's nothing to
+    // count down to, and the card was otherwise just sitting there partially
+    // covering the map on small screens for no reason.
     const banner = el('countdownBanner');
-    let urgent = false;
     if (w.active) {
-      el('countdownValue').textContent = 'In progress';
+      banner.classList.add('hidden');
       el('nextSprintBtn').classList.add('hidden');
     } else {
+      banner.classList.remove('hidden');
       const secs = Math.ceil(w.betweenTimer);
       el('countdownValue').textContent = `${secs}s`;
       el('nextSprintBtn').classList.remove('hidden');
-      urgent = secs <= 3;
+      banner.classList.toggle('urgent', secs <= 3);
     }
-    banner.classList.toggle('urgent', urgent);
 
     const warn = el('paydayWarning');
     if (core.negativeBudgetTimer > 0) {

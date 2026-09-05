@@ -122,10 +122,10 @@ describe('UI.updateHUD', () => {
     expect(el('budgetValue').classList.contains('negative')).toBe(true);
   });
 
-  it('shows "In progress" and hides Skip Wait while a sprint is active', () => {
+  it('hides the whole countdown card and Skip Wait while a sprint is active (nothing to count down to, and it would just cover the map)', () => {
     Core.waves.active = true;
     UI.updateHUD();
-    expect(el('countdownValue').textContent).toBe('In progress');
+    expect(el('countdownBanner').classList.contains('hidden')).toBe(true);
     expect(el('nextSprintBtn').classList.contains('hidden')).toBe(true);
   });
 
@@ -133,6 +133,7 @@ describe('UI.updateHUD', () => {
     Core.waves.active = false;
     Core.waves.betweenTimer = 5;
     UI.updateHUD();
+    expect(el('countdownBanner').classList.contains('hidden')).toBe(false);
     expect(el('countdownValue').textContent).toBe('5s');
     expect(el('nextSprintBtn').classList.contains('hidden')).toBe(false);
     expect(el('countdownBanner').classList.contains('urgent')).toBe(false);
