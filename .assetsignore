@@ -3,6 +3,7 @@ coverage
 tests
 art-sources
 .git
+.github
 .gitignore
 .assetsignore
 package.json
