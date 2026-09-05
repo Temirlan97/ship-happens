@@ -235,6 +235,48 @@ describe('UI.updateUpgradePanel', () => {
     UI.updateUpgradePanel();
     expect(el('upAuraNote').classList.contains('hidden')).toBe(false);
   });
+
+  it('shows the severance cost on the fire button and enables it when affordable', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.selectedTower = Core.towers[0];
+    Core.budget = 999999;
+    UI.updateUpgradePanel();
+    const severance = Core.severanceCostFor(Core.towers[0]);
+    expect(el('fireBtn').textContent).toBe(`Fire (${Game.fmt(severance)})`);
+    expect(el('fireBtn').disabled).toBe(false);
+  });
+
+  it('disables the fire button when severance is unaffordable', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.selectedTower = Core.towers[0];
+    Core.budget = 0;
+    UI.updateUpgradePanel();
+    expect(el('fireBtn').disabled).toBe(true);
+  });
+
+  it('the fire button stays available even at the level cap, unlike the upgrade button', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.towers[0].level = CFG.MAX_TOWER_LEVEL;
+    Core.selectedTower = Core.towers[0];
+    Core.budget = 999999;
+    UI.updateUpgradePanel();
+    expect(el('fireBtn').disabled).toBe(false);
+  });
+});
+
+describe('UI.init wires the fire button', () => {
+  it('clicking Fire fires the selected tower', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.selectedTower = Core.towers[0];
+    Core.budget = 999999;
+    UI.updateUpgradePanel();
+    el('fireBtn').click();
+    expect(Core.towers).toHaveLength(0);
+  });
 });
 
 describe('UI.positionUpgradePanel', () => {

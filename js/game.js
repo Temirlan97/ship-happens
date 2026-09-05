@@ -273,6 +273,29 @@
       window.Game.UI.updateUpgradePanel();
     },
 
+    // Firing costs severance up front — a real budget hit, not a free undo
+    // of a hire — scaled off the tower's own current (rank-scaled) salary,
+    // so letting go of someone senior costs more than a junior. Frees their
+    // desk immediately, same as it was before they were ever hired.
+    severanceCostFor(tower) {
+      return Math.round(tower.salary * CFG.SEVERANCE_SALARY_MULT);
+    },
+    fireSelectedTower() {
+      const tower = this.selectedTower;
+      if (!tower) return;
+      const severance = this.severanceCostFor(tower);
+      if (this.budget < severance) { window.Game.Audio.error(); return; }
+      this.budget -= severance;
+      this.stats.salaries += severance;
+      this.towers = this.towers.filter(t => t !== tower);
+      this.selectedTower = null;
+      window.Game.Audio.payday();
+      this.spawnParticles(tower.x, tower.y - 10, '#ff6b6b', 10, 70);
+      this.effects.push({ type: 'floatText', x: tower.x, y: tower.y - 50, life: 1.1, maxLife: 1.1, text: '-' + window.Game.fmt(severance), color: '#ff6b6b' });
+      window.Game.UI.updateUpgradePanel();
+      window.Game.UI.showToast(`${tower.def.name} let go — ${window.Game.fmt(severance)} severance paid.`);
+    },
+
     cycleSpeed() {
       this.speed = this.speed === 1 ? 2 : (this.speed === 2 ? 3 : 1);
       window.Game.UI.updateHUD();

@@ -89,6 +89,11 @@
     SALARY_MULT: [null, 1.0, 1.6, 2.3, 3.0],
     SALARY_ENDLESS_GROWTH: 0.10, // +10% per Scale-Up tier
 
+    // Firing someone costs severance up front — a multiple of their current
+    // per-sprint salary, so a senior/high-tier hire costs more to let go
+    // than a junior one, same as their salary already does.
+    SEVERANCE_SALARY_MULT: 2,
+
     // `leakCost` is deducted from Budget directly if the enemy reaches
     // Production — the sole consequence of a leak now that there's no
     // separate Users pool to erode.

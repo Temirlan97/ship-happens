@@ -510,6 +510,20 @@ html, body {
 }
 .upgrade-btn.hidden { display: none; }
 .upgrade-btn:disabled { background: #37415a; color: #8f9bb5; cursor: not-allowed; }
+.fire-btn {
+  width: 100%;
+  margin-top: 5px;
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 10px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.fire-btn:hover { background: rgba(255,93,93,0.12); }
+.fire-btn:disabled { border-color: #37415a; color: #8f9bb5; cursor: not-allowed; background: transparent; }
 
 .toast {
   position: absolute;

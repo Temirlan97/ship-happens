@@ -169,3 +169,79 @@ describe('Core.upgradeSelected', () => {
     expect(() => Core.upgradeSelected()).not.toThrow();
   });
 });
+
+describe('Core.severanceCostFor', () => {
+  it('is SEVERANCE_SALARY_MULT times the tower\'s current (rank-scaled) salary', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    const tower = Core.towers[0];
+    expect(Core.severanceCostFor(tower)).toBe(Math.round(tower.salary * CFG.SEVERANCE_SALARY_MULT));
+  });
+
+  it('scales up as the tower is promoted, since salary itself scales with rank', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    const tower = Core.towers[0];
+    const level1Severance = Core.severanceCostFor(tower);
+    tower.level = 4;
+    expect(Core.severanceCostFor(tower)).toBeGreaterThan(level1Severance);
+  });
+});
+
+describe('Core.fireSelectedTower', () => {
+  it('removes the tower, deducts severance from budget, and frees the desk', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    const tower = Core.towers[0];
+    Core.selectedTower = tower;
+    const severance = Core.severanceCostFor(tower);
+    const budgetBefore = Core.budget;
+    Core.fireSelectedTower();
+    expect(Core.towers).toHaveLength(0);
+    expect(Core.budget).toBe(budgetBefore - severance);
+    expect(Core.towerAt(d.col, d.row)).toBeNull();
+  });
+
+  it('tracks severance paid under the same cumulative stat as salaries', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.selectedTower = Core.towers[0];
+    const severance = Core.severanceCostFor(Core.towers[0]);
+    Core.fireSelectedTower();
+    expect(Core.stats.salaries).toBe(severance);
+  });
+
+  it('deselects the tower after firing (closes the upgrade panel)', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.selectedTower = Core.towers[0];
+    Core.fireSelectedTower();
+    expect(Core.selectedTower).toBeNull();
+  });
+
+  it('refuses to fire (and leaves the tower in place) when severance is unaffordable', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.selectedTower = Core.towers[0];
+    Core.budget = 0;
+    Core.fireSelectedTower();
+    expect(Core.towers).toHaveLength(1);
+    expect(Core.selectedTower).toBe(Core.towers[0]);
+  });
+
+  it('does nothing when no tower is selected', () => {
+    Core.selectedTower = null;
+    expect(() => Core.fireSelectedTower()).not.toThrow();
+  });
+
+  it('a freed desk can immediately be hired onto again', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.budget = 999999;
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.selectedTower = Core.towers[0];
+    Core.fireSelectedTower();
+    Core.hireAt(d.col, d.row, 'pm');
+    expect(Core.towers).toHaveLength(1);
+    expect(Core.towers[0].type).toBe('pm');
+  });
+});

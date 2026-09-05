@@ -16,6 +16,7 @@
     el('muteBtn').addEventListener('click', () => core.toggleMute());
     el('speedBtn').addEventListener('click', () => core.cycleSpeed());
     el('upgradeBtn').addEventListener('click', (e) => { e.stopPropagation(); core.upgradeSelected(); });
+    el('fireBtn').addEventListener('click', (e) => { e.stopPropagation(); core.fireSelectedTower(); });
     el('upgradePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('hirePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('pauseOverlay').addEventListener('click', () => core.togglePause());
@@ -225,6 +226,13 @@
       maxed.classList.remove('hidden');
       btn.classList.add('hidden');
     }
+
+    // Firing is always available regardless of upgrade state — a maxed-out
+    // teammate can still be let go, same as a fresh hire.
+    const severance = core.severanceCostFor(tower);
+    const fireBtn = el('fireBtn');
+    fireBtn.textContent = `Fire (${window.Game.fmt(severance)})`;
+    fireBtn.disabled = core.budget < severance;
   }
 
   // Anchored above the tower's head (not centered on it) so promoting never
