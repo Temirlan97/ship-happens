@@ -27,6 +27,17 @@
     return pts;
   }
 
+  // Shared by every enemy's draw method (sprite, blob, flame, competitor) —
+  // each just differs in where the bar sits above the enemy, everything else
+  // (size, color-by-fraction, backing shadow) was identical duplicated code.
+  function drawHealthBar(ctx, cx, barY, radius, hp, maxHp) {
+    const w = radius * 2, h = 4;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(cx - w / 2, barY, w, h);
+    ctx.fillStyle = hp / maxHp > 0.4 ? '#5fd35f' : '#e0503c';
+    ctx.fillRect(cx - w / 2, barY, w * (hp / maxHp), h);
+  }
+
   function strokeGlowPath(ctx, pts, color, glow, width) {
     ctx.save();
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -155,13 +166,7 @@
         ctx.beginPath(); ctx.arc(this.x, this.y + bob, this.radius + 5, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }
-      if (this.hp < this.maxHp) {
-        const w = this.radius * 2, h = 4;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(this.x - w / 2, this.y - targetH * 0.6, w, h);
-        ctx.fillStyle = this.hp / this.maxHp > 0.4 ? '#5fd35f' : '#e0503c';
-        ctx.fillRect(this.x - w / 2, this.y - targetH * 0.6, w * (this.hp / this.maxHp), h);
-      }
+      if (this.hp < this.maxHp) drawHealthBar(ctx, this.x, this.y - targetH * 0.6, this.radius, this.hp, this.maxHp);
       return true;
     }
     drawBlob(ctx) {
@@ -253,13 +258,7 @@
       }
       ctx.restore();
 
-      if (this.hp < this.maxHp) {
-        const w = this.radius * 2, h = 4;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(this.x - w / 2, this.y - this.radius - 12, w, h);
-        ctx.fillStyle = this.hp / this.maxHp > 0.4 ? '#5fd35f' : '#e0503c';
-        ctx.fillRect(this.x - w / 2, this.y - this.radius - 12, w * (this.hp / this.maxHp), h);
-      }
+      if (this.hp < this.maxHp) drawHealthBar(ctx, this.x, this.y - this.radius - 12, this.radius, this.hp, this.maxHp);
     }
     // Incidents render as an actual flame — three layered, flickering flame
     // tongues (outer red, mid orange, inner yellow-white) with rising embers,
@@ -318,13 +317,7 @@
       }
       ctx.restore();
 
-      if (this.hp < this.maxHp) {
-        const w = r * 2, h = 4, barY = this.y - r * 2.4 - 8;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(this.x - w / 2, barY, w, h);
-        ctx.fillStyle = this.hp / this.maxHp > 0.4 ? '#5fd35f' : '#e0503c';
-        ctx.fillRect(this.x - w / 2, barY, w * (this.hp / this.maxHp), h);
-      }
+      if (this.hp < this.maxHp) drawHealthBar(ctx, this.x, this.y - r * 2.4 - 8, r, this.hp, this.maxHp);
     }
     drawCompetitor(ctx) {
       for (let i = 0; i < this.trail.length; i++) {
@@ -356,13 +349,7 @@
       ctx.shadowBlur = 0;
       ctx.restore();
 
-      if (this.hp < this.maxHp) {
-        const w = this.radius * 2, h = 4;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(this.x - w / 2, this.y - this.radius - 12, w, h);
-        ctx.fillStyle = this.hp / this.maxHp > 0.4 ? '#5fd35f' : '#e0503c';
-        ctx.fillRect(this.x - w / 2, this.y - this.radius - 12, w * (this.hp / this.maxHp), h);
-      }
+      if (this.hp < this.maxHp) drawHealthBar(ctx, this.x, this.y - this.radius - 12, this.radius, this.hp, this.maxHp);
     }
   }
 
