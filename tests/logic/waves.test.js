@@ -113,6 +113,22 @@ describe('WaveManager.startNextWave', () => {
     w.startNextWave(); // sprint 1, still pre-seed
     expect(w.justEnteredStage).toBe(-1);
   });
+
+  it('flags a Scale-Up milestone every SCALEUP_LOOP_SPRINTS sprints once in the endless stage', () => {
+    const w = new WaveManager();
+    const scaleUpTrigger = CFG.FUNDING_STAGES.at(-1).triggerSprint;
+    w.waveIndex = scaleUpTrigger + CFG.SCALEUP_LOOP_SPRINTS - 2; // next call lands exactly on a multiple
+    w.startNextWave();
+    expect(w.justHitScaleUpMilestone).toBe(1);
+  });
+
+  it('does not flag a milestone on a Scale-Up sprint that is not a multiple of the loop cadence', () => {
+    const w = new WaveManager();
+    const scaleUpTrigger = CFG.FUNDING_STAGES.at(-1).triggerSprint;
+    w.waveIndex = scaleUpTrigger; // one sprint into Scale-Up, not a loop multiple
+    w.startNextWave();
+    expect(w.justHitScaleUpMilestone).toBe(false);
+  });
 });
 
 describe('WaveManager.skipCountdown', () => {

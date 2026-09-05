@@ -55,10 +55,33 @@ class FakeAudioContext {
 
 window.AudioContext = FakeAudioContext;
 
-// jsdom has no real <canvas> 2D implementation and logs a "Not implemented"
-// warning every time getContext('2d') is called. game.js legitimately calls
-// this once at load time (see js/game.js's top-level `canvas.getContext`)
-// and every logic-tier test loads game.js, so left alone this prints dozens
-// of times per run. Returning null quietly is exactly jsdom's own real
-// behavior here (verified: it doesn't throw) — this just drops the log spam.
-window.HTMLCanvasElement.prototype.getContext = () => null;
+// jsdom has no real <canvas> 2D implementation. A working (no-op) stub is
+// installed instead of returning null: Phase 1 (logic) tests never touch
+// ctx so it wouldn't matter to them, but Phase 2 (rendering smoke tests)
+// needs every draw()/render() call to actually run against something
+// method-shaped rather than throw on ctx.save() etc. Style property
+// assignment (ctx.fillStyle = ...) needs no special handling — plain
+// objects accept arbitrary own-property writes.
+class FakeGradient {
+  addColorStop() { return this; }
+}
+class FakeCanvasContext {
+  save() {} restore() {}
+  translate() {} scale() {} rotate() {} transform() {} setTransform() {} resetTransform() {}
+  beginPath() {} closePath() {}
+  moveTo() {} lineTo() {} quadraticCurveTo() {} bezierCurveTo() {} arcTo() {}
+  arc() {} ellipse() {} rect() {} roundRect() {}
+  fill() {} stroke() {} clip() {}
+  fillRect() {} strokeRect() {} clearRect() {}
+  fillText() {} strokeText() {}
+  measureText() { return { width: 0 }; }
+  drawImage() {}
+  createRadialGradient() { return new FakeGradient(); }
+  createLinearGradient() { return new FakeGradient(); }
+  createPattern() { return null; }
+  setLineDash() {} getLineDash() { return []; }
+}
+window.HTMLCanvasElement.prototype.getContext = function () {
+  if (!this.__fakeCtx) this.__fakeCtx = new FakeCanvasContext();
+  return this.__fakeCtx;
+};
