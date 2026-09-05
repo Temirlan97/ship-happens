@@ -1,0 +1,533 @@
+:root {
+  --panel: #101826;
+  --panel-light: #1a2436;
+  --border: #2c3b52;
+  --budget: #f2c94c;
+  --text: #dbe6f3;
+  --dim: #93a5bd;
+  --engineer: #5b9dff;
+  --sre: #f2a340;
+  --qa: #34d1b0;
+  --pm: #f2c94c;
+  --coffee: #b083f0;
+  --accent-green: #39ff88;
+  --danger: #ff5d5d;
+  --amber: #ffb454;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0f1a;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---- full-viewport game root: canvas fills it, everything else floats on
+   top as corner-anchored badges, Clash-of-Clans style ---- */
+#game-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#gameCanvas { position: absolute; top: 0; left: 0; display: block; cursor: default; background: #142530; }
+
+.hud-badge {
+  position: absolute;
+  background: linear-gradient(180deg, var(--panel-light), var(--panel));
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+  z-index: 10;
+}
+#hudTopLeft { top: 16px; left: 16px; min-width: 150px; }
+#hudTopRight { top: 16px; right: 16px; min-width: 150px; text-align: right; }
+
+.badge-row { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 20px; }
+#hudTopRight .badge-row { justify-content: flex-end; }
+.badge-row.small { font-size: 13px; opacity: 0.85; margin-top: 3px; }
+.badge-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.75; }
+.badge-value { font-variant-numeric: tabular-nums; }
+
+/* GTA-pickup-style money readout — bold green text, no icon needed. */
+.money-row { font-size: 26px; }
+.money-value {
+  color: var(--accent-green);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 12px rgba(57,255,136,0.5), 0 2px 3px rgba(0,0,0,0.5);
+  -webkit-text-stroke: 0.5px rgba(0,0,0,0.4);
+}
+.money-value.negative {
+  color: var(--danger);
+  text-shadow: 0 0 12px rgba(255,93,93,0.5), 0 2px 3px rgba(0,0,0,0.5);
+}
+.payroll-row { color: var(--danger); opacity: 0.85; }
+.payroll-suffix { font-size: 9px; opacity: 0.7; margin-left: 1px; }
+
+/* Big, unmissable — top-center, right under the title. Light red always
+   (not just once urgent) so the pressure to get desks staffed before the
+   next sprint reads at a glance the whole time it's counting down. */
+.countdown-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(180deg, var(--panel-light), var(--panel));
+  border: 2px solid #ff8a8a;
+  border-radius: 22px;
+  padding: 6px 28px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+}
+.countdown-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; color: #ff8a8a; }
+.countdown-value {
+  font-size: 48px;
+  font-weight: 800;
+  color: #ff8a8a;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 16px rgba(255,138,138,0.55);
+  font-variant-numeric: tabular-nums;
+}
+.countdown-banner.urgent {
+  border-color: var(--danger);
+  animation: countdownPulse 0.5s ease-in-out infinite alternate;
+}
+.countdown-banner.urgent .countdown-value { color: var(--danger); text-shadow: 0 0 14px rgba(255,93,93,0.7); }
+@keyframes countdownPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+/* Speed toggle — deliberately bigger/louder than the other icon buttons so
+   its purpose (and current state) reads at a glance. */
+.speed-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px !important;
+  padding: 7px 12px !important;
+  border-width: 2px;
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  font-weight: 800;
+}
+.speed-btn.active {
+  background: var(--accent-green);
+  color: #08150e;
+  box-shadow: 0 0 14px rgba(57,255,136,0.55);
+}
+
+.payday-warning {
+  margin-top: 5px;
+  font-size: 10px; font-weight: 700; color: var(--danger);
+  text-shadow: 0 0 8px rgba(255,93,93,0.5);
+}
+.payday-warning.hidden { display: none; }
+.payday-warning.crisis {
+  font-size: 12px;
+  color: #fff;
+  background: rgba(255,93,93,0.85);
+  padding: 5px 8px;
+  border-radius: 6px;
+  animation: crisisPulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes crisisPulse {
+  from { background: rgba(255,93,93,0.7); }
+  to { background: rgba(255,93,93,1); }
+}
+
+#hudControls { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+#nextSprintBtn.hidden { display: none; }
+.icon-btn {
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.icon-btn:hover { background: #24304a; }
+
+/* ---- top-center: logo + funding-stage timeline, shrunk into a pill ---- */
+#hudTopCenter {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+#titleBar { display: flex; align-items: center; gap: 8px; }
+#titleBar h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #7fb4ff 0%, #39ff88 50%, #f2c94c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Company-phase bar — pinned to the left edge, vertically centered, read
+   top (Pre-Seed) to bottom (Scale-Up) like the rest of the progression. */
+#timelineRow {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(180deg, var(--panel-light), var(--panel));
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 16px 10px;
+  font-size: 11px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+#stageLabel { text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-green); font-weight: 700; writing-mode: vertical-rl; }
+#sprintValue { font-weight: 700; white-space: nowrap; }
+#timelineTrack { position: relative; width: 5px; height: 180px; background: #0b1220; border-radius: 3px; }
+#timelineFill {
+  position: absolute; left: 0; right: 0; top: 0;
+  height: 0%;
+  background: linear-gradient(180deg, #39ff88, #7fb4ff);
+  border-radius: 3px;
+  transition: height 0.4s ease;
+}
+.timeline-stage { position: absolute; left: 50%; transform: translate(-50%, -50%); }
+.timeline-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #0b1220;
+  border: 2px solid var(--border);
+  display: block;
+}
+.timeline-stage.reached .timeline-dot { background: #39ff88; border-color: #39ff88; box-shadow: 0 0 6px rgba(57,255,136,0.6); }
+.timeline-stage.current .timeline-dot { background: #f2c94c; border-color: #f2c94c; box-shadow: 0 0 8px rgba(242,201,76,0.7); width: 10px; height: 10px; }
+.timeline-label { display: none; } /* too tight for a pill-sized timeline — dots + the Next readout carry it */
+#timelineNext, #countdownValue { opacity: 0.75; white-space: nowrap; }
+#timelineNext { writing-mode: vertical-rl; max-height: 140px; }
+.timeline-best {
+  font-size: 10px;
+  opacity: 0.75;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.timeline-best strong { color: var(--budget); }
+
+.screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 18, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: 30px;
+  z-index: 30;
+}
+.screen.hidden { display: none; }
+#loadingOverlay { z-index: 40; }
+.screen h1 {
+  margin: 0; font-size: 34px; color: var(--budget);
+  text-shadow: 0 0 18px rgba(242, 201, 76, 0.4), 0 2px 6px rgba(0,0,0,0.5);
+}
+.screen p { max-width: 480px; line-height: 1.55; opacity: 0.92; }
+.primary-btn {
+  background: linear-gradient(180deg, #7fb4ff, #3d7de0);
+  border: none;
+  color: #08111d;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 12px 26px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #244a86, 0 0 20px rgba(70,140,255,0.4);
+}
+.primary-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #244a86; }
+
+/* ---- end-of-run stats card — designed to be worth a screenshot: a self-
+   contained "receipt" of the run with its own branding, not just a HUD
+   readout. Sized so it comfortably fits a phone-portrait screenshot crop. */
+.stats-card {
+  width: min(420px, 86vw);
+  background:
+    radial-gradient(120% 140% at 50% -10%, rgba(127,180,255,0.16), transparent 55%),
+    linear-gradient(165deg, #16213a 0%, #0d1526 70%);
+  border: 1px solid rgba(127,180,255,0.28);
+  border-radius: 26px;
+  padding: 26px 26px 20px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03) inset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.stats-card-brand {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #7fb4ff 0%, #39ff88 50%, #f2c94c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 6px;
+}
+.stats-card-title.stats-card-title { font-size: 21px; margin: 0 0 6px; } /* override .screen h1's larger size */
+.stats-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0 18px;
+}
+.stats-hero-number {
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent-green);
+  text-shadow: 0 0 30px rgba(57,255,136,0.5);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stats-hero-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+.stats-hero-best {
+  margin-top: 10px;
+  font-size: 11px;
+  opacity: 0.75;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 14px;
+}
+.stats-hero-best strong { color: var(--budget); }
+.stats-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.stat-tile {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--accent-tile, var(--border));
+  border-radius: 14px;
+  padding: 12px 8px;
+  text-align: center;
+}
+.stat-tile.stat-green { --accent-tile: var(--accent-green); }
+.stat-tile.stat-amber { --accent-tile: var(--amber); }
+.stat-tile.stat-red { --accent-tile: var(--danger); }
+.stat-tile.stat-blue { --accent-tile: var(--engineer); }
+.stat-value {
+  font-size: 21px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--accent-tile, var(--text));
+}
+.stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+  margin-top: 3px;
+}
+.stats-card-footer {
+  margin-top: 18px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.4;
+}
+
+/* ---- pause overlay: sits centered over the dimmed canvas; hover swaps the
+   icon/text to a "resume" affordance and the whole thing is clickable ---- */
+.pause-overlay {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.pause-overlay.hidden { display: none; }
+.pause-text {
+  font-size: 52px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 0 24px rgba(0,0,0,0.6);
+  letter-spacing: 0.06em;
+  padding: 14px 36px;
+  border: 3px solid rgba(255,255,255,0.5);
+  border-radius: 16px;
+}
+.pause-text-hover { display: none; }
+.pause-overlay:hover .pause-text-default { display: none; }
+.pause-overlay:hover .pause-text-hover { display: block; }
+.pause-overlay:hover .pause-text { color: var(--accent-green); border-color: var(--accent-green); }
+
+/* ---- desk hire popup: appears next to whichever empty desk was clicked ---- */
+.hire-panel {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  gap: 8px;
+  background: linear-gradient(180deg, var(--panel-light), var(--panel));
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.5);
+  z-index: 20;
+}
+.hire-panel.hidden { display: none; }
+
+.card {
+  position: relative;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #0c1420;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 4px 10px;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.card:hover { border-color: var(--budget); transform: translateY(-2px); }
+.card.disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.card.disabled:hover { border-color: var(--border); }
+.card.role-locked { opacity: 0.55; cursor: not-allowed; }
+
+.card-cooldown {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 0%;
+  background: rgba(0,0,0,0.6);
+  pointer-events: none;
+  transition: height 0.1s linear;
+  z-index: 1;
+}
+
+.card-lock {
+  position: absolute; inset: 0; z-index: 2;
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: rgba(6,10,18,0.86); font-size: 10px; font-weight: 700; text-align: center; padding: 4px;
+}
+.card.role-locked .card-lock { display: flex; }
+.card-lock .lock-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.card-icon {
+  width: 44px; height: 44px;
+  border-radius: 8px;
+  position: relative;
+  z-index: 1;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+}
+.card-salary { font-size: 10px; color: var(--dim); z-index: 1; }
+.card-name { font-size: 11px; font-weight: 600; z-index: 1; text-align: center; line-height: 1.2; }
+.card-cost { font-size: 11px; color: var(--budget); z-index: 1; }
+
+/* Anchored bottom-center (not top) so the panel grows UPWARD off the
+   tower's head instead of covering the tower — see positionUpgradePanel. */
+.upgrade-panel {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  width: 116px;
+  background: linear-gradient(180deg, var(--panel-light), var(--panel));
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  z-index: 20;
+  pointer-events: auto;
+}
+.upgrade-panel.hidden { display: none; }
+.up-preview {
+  width: 56px; height: 56px;
+  margin: 0 auto 4px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background-color: #0c1420;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+}
+.up-next-name { font-size: 10px; font-weight: 600; margin-bottom: 6px; line-height: 1.2; }
+.up-aura-note { font-size: 9px; color: #d9c4ff; opacity: 0.9; margin: -3px 0 6px; line-height: 1.2; }
+.up-aura-note.hidden { display: none; }
+.up-maxed { font-size: 11px; font-weight: 800; color: var(--budget); padding: 5px 0 1px; }
+.up-maxed.hidden { display: none; }
+.upgrade-btn {
+  width: 100%;
+  background: linear-gradient(180deg, #ffd868, #d9a83a);
+  border: none;
+  color: #2a2118;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 6px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.upgrade-btn.hidden { display: none; }
+.upgrade-btn:disabled { background: #37415a; color: #8f9bb5; cursor: not-allowed; }
+
+.toast {
+  position: absolute;
+  top: 90px;
+  left: 50%;
+  transform: translate(-50%, -14px);
+  background: rgba(10, 16, 26, 0.94);
+  border: 1px solid var(--border);
+  color: var(--accent-green);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  z-index: 15;
+  max-width: 80%;
+  text-align: center;
+}
+.toast.hidden { display: none; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }

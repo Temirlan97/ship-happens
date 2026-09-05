@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ship Happens</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game-root">
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="loadingOverlay" class="screen">
+    <h1>Loading…</h1>
+  </div>
+
+  <div id="hudTopLeft" class="hud-badge">
+    <div class="badge-row money-row"><span id="budgetValue" class="money-value">$0</span></div>
+    <div class="badge-row small payroll-row"><span class="badge-label">Payroll</span><span id="payrollValue" class="badge-value">$0</span><span class="payroll-suffix">/sprint</span></div>
+    <div id="paydayWarning" class="payday-warning hidden"></div>
+  </div>
+
+  <div id="hudTopRight" class="hud-badge">
+    <div id="hudControls">
+      <button id="nextSprintBtn" class="icon-btn">Skip Wait</button>
+      <button id="speedBtn" class="icon-btn speed-btn"><span id="speedValue">1x</span></button>
+      <button id="pauseBtn" class="icon-btn">Pause</button>
+      <button id="muteBtn" class="icon-btn">Sound: On</button>
+    </div>
+  </div>
+
+  <div id="hudTopCenter">
+    <div id="titleBar">
+      <h1>Ship Happens</h1>
+    </div>
+    <div id="countdownBanner" class="countdown-banner">
+      <span class="countdown-label">Next Sprint</span><span id="countdownValue" class="countdown-value">Ready</span>
+    </div>
+  </div>
+
+  <div id="timelineRow">
+    <span class="label" id="stageLabel">Pre-Seed</span>
+    <span id="sprintValue">0 / 10</span>
+    <span id="timelineBest" class="timeline-best">Best <strong id="bestSprintValue">0</strong></span>
+    <div id="timelineTrack"></div>
+    <span id="timelineNext"></span>
+  </div>
+
+  <div id="pauseOverlay" class="pause-overlay hidden">
+    <span class="pause-text pause-text-default">PAUSED</span>
+    <span class="pause-text pause-text-hover">RESUME</span>
+  </div>
+
+  <div id="upgradePanel" class="upgrade-panel hidden">
+    <div id="upPreview" class="up-preview"></div>
+    <div id="upNextName" class="up-next-name"></div>
+    <div id="upAuraNote" class="up-aura-note hidden">Boosts whole team</div>
+    <div id="upMaxed" class="up-maxed hidden">MAX</div>
+    <button id="upgradeBtn" class="upgrade-btn"></button>
+  </div>
+
+  <div id="hirePanel" class="hire-panel hidden"></div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <div id="screen-start" class="screen">
+    <h1>Ship Happens</h1>
+    <p>Hire your team, defend Production from bugs and incidents, and don't run out of money.</p>
+    <button id="startBtn" class="primary-btn">Launch</button>
+  </div>
+
+  <div id="screen-gameover" class="screen hidden">
+    <div id="statsCard" class="stats-card">
+      <div class="stats-card-brand">Ship Happens</div>
+      <h1 id="gameoverTitle" class="stats-card-title">The Product Has Failed</h1>
+      <div class="stats-hero">
+        <div class="stats-hero-number" id="statSprintValue">1</div>
+        <div class="stats-hero-label">Sprints Survived</div>
+        <div class="stats-hero-best">Personal Best — Sprint <strong id="statBestValue">1</strong></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-tile stat-green">
+          <div class="stat-value" id="statIncome">$0</div>
+          <div class="stat-label">Revenue Raised</div>
+        </div>
+        <div class="stat-tile stat-amber">
+          <div class="stat-value" id="statSalaries">$0</div>
+          <div class="stat-label">Payroll Paid</div>
+        </div>
+        <div class="stat-tile stat-red">
+          <div class="stat-value" id="statLost">$0</div>
+          <div class="stat-label">Lost to Incidents</div>
+        </div>
+        <div class="stat-tile stat-blue">
+          <div class="stat-value" id="statKills">0</div>
+          <div class="stat-label">Bugs Squashed</div>
+        </div>
+      </div>
+      <div class="stats-card-footer">Startup Tower Defense</div>
+    </div>
+    <button id="restartBtn" class="primary-btn">Try Again</button>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/path.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/waves.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
