@@ -29,8 +29,13 @@ export function loadGame(scripts = SCRIPT_ORDER) {
   delete window.Game;
   installFixtureDom();
   for (const file of scripts) {
-    const src = fs.readFileSync(path.join(JS_DIR, file), 'utf8');
-    vm.runInThisContext(src, { filename: file });
+    const fullPath = path.join(JS_DIR, file);
+    const src = fs.readFileSync(fullPath, 'utf8');
+    // filename must be the real absolute path (not a bare relative name) —
+    // v8's coverage collector keys captured ranges by this script URL, and
+    // needs it to resolve back to the real file on disk to attribute
+    // coverage to js/*.js at all.
+    vm.runInThisContext(src, { filename: fullPath });
   }
   return window.Game;
 }
