@@ -36,7 +36,7 @@ html, body {
   overflow: hidden;
 }
 
-#gameCanvas { position: absolute; top: 0; left: 0; display: block; cursor: default; background: #142530; }
+#gameCanvas { position: absolute; top: 0; left: 0; display: block; cursor: default; background: #142530; touch-action: none; }
 
 .hud-badge {
   position: absolute;
@@ -546,3 +546,41 @@ html, body {
 }
 .toast.hidden { display: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- small screens (phones): the board itself now auto-fits via the
+   camera (js/camera.js), but the fixed-size HUD chrome still needs to
+   shrink so it doesn't overlap itself on a narrow viewport ---- */
+@media (max-width: 600px) {
+  .hud-badge { padding: 6px 10px; }
+  #hudTopLeft, #hudTopRight { min-width: 0; }
+  .money-row { font-size: 18px; }
+  .badge-row { font-size: 14px; gap: 5px; }
+  .badge-row.small { font-size: 10px; }
+
+  /* Four buttons in one row is too wide for a phone alongside the centered
+     countdown banner — wrap them into a small grid, and drop hudTopRight
+     down below the banner's height so the two can never overlap regardless
+     of exact widths. */
+  #hudTopRight { top: 88px; }
+  #hudControls { flex-wrap: wrap; justify-content: flex-end; max-width: 132px; gap: 4px; margin-top: 4px; }
+  .icon-btn { padding: 4px 6px; font-size: 10px; }
+  .speed-btn { font-size: 11px !important; padding: 4px 8px !important; }
+
+  #titleBar h1 { font-size: 15px; }
+  .countdown-banner { padding: 4px 14px; gap: 6px; }
+  .countdown-label { font-size: 9px; }
+  .countdown-value { font-size: 28px; }
+
+  #timelineRow { left: 6px; padding: 10px 6px; gap: 6px; font-size: 9px; }
+  #timelineTrack { height: 110px; }
+  #timelineNext { max-height: 90px; }
+  .timeline-best { font-size: 8px; padding: 2px 6px; }
+
+  .hire-panel { gap: 5px; padding: 6px; }
+  .card { width: 68px; padding: 6px 3px 8px; }
+  .card-icon { width: 34px; height: 34px; }
+  .card-name, .card-cost { font-size: 9px; }
+
+  .upgrade-panel { width: 92px; padding: 6px; }
+  .up-preview { width: 44px; height: 44px; }
+}

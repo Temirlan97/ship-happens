@@ -101,10 +101,11 @@
     panel.classList.remove('hidden');
     const canvas = document.getElementById('gameCanvas');
     const c = window.Game.Path.cellCenter(desk.col, desk.row);
+    const screenPt = window.Game.Camera.worldToScreen(c.x, c.y);
     const scaleX = canvas.clientWidth / canvas.width;
     const scaleY = canvas.clientHeight / canvas.height;
-    panel.style.left = (canvas.offsetLeft + c.x * scaleX) + 'px';
-    panel.style.top = (canvas.offsetTop + c.y * scaleY - 20) + 'px'; // CSS translate(-50%,-100%) anchors the panel above this point
+    panel.style.left = (canvas.offsetLeft + screenPt.x * scaleX) + 'px';
+    panel.style.top = (canvas.offsetTop + screenPt.y * scaleY - 20) + 'px'; // CSS translate(-50%,-100%) anchors the panel above this point
   }
 
   function cardClassFor(s) {
@@ -254,12 +255,13 @@
   function positionUpgradePanel(tower, canvas) {
     const panel = el('upgradePanel');
     if (panel.classList.contains('hidden')) return;
+    const screenPt = window.Game.Camera.worldToScreen(tower.x, tower.y);
     const scaleX = canvas.clientWidth / canvas.width;
     const scaleY = canvas.clientHeight / canvas.height;
     const halfW = panel.offsetWidth / 2;
     const h = panel.offsetHeight;
-    let left = canvas.offsetLeft + tower.x * scaleX;
-    let top = canvas.offsetTop + tower.y * scaleY - 130;
+    let left = canvas.offsetLeft + screenPt.x * scaleX;
+    let top = canvas.offsetTop + screenPt.y * scaleY - 130;
     left = Math.min(Math.max(left, halfW + 8), canvas.offsetLeft + canvas.clientWidth - halfW - 8);
     top = Math.max(top, h + 8);
     panel.style.left = left + 'px';

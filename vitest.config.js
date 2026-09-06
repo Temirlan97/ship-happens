@@ -15,6 +15,7 @@ export default defineConfig({
         // covered at a lighter smoke-test level by design — see the plan
         // notes in tests/README.md for the reasoning.
         'js/config.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'js/camera.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'js/path.js': { statements: 90, branches: 85, functions: 90, lines: 90 },
         'js/entities.js': { statements: 80, branches: 75, functions: 85, lines: 80 },
         'js/waves.js': { statements: 100, branches: 95, functions: 100, lines: 100 },

@@ -13,7 +13,12 @@
   const ctx = canvas.getContext('2d');
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  PATH.init(canvas.width, canvas.height);
+  // The world's own pixel layout is fixed forever at this one reference
+  // size (matches every direct PATH.relayout(1600,1000) call in the test
+  // suite, so the default desktop look is unchanged) — only the camera
+  // adapts to whatever real viewport/zoom/pan the player has from here on.
+  PATH.init(1600, 1000);
+  window.Game.Camera.init(canvas.width, canvas.height, PATH.BOARD_W, PATH.BOARD_H);
 
   function loadBestSprint() {
     try { return parseInt(localStorage.getItem('ship_happens_best_sprint') || '0', 10) || 0; }
@@ -59,16 +64,28 @@
     },
 
     bindInput() {
+      const Camera = window.Game.Camera;
+      // World-space (post-camera) coords — hitTest/screenToCell keep
+      // operating in world-pixel space exactly as before this file gained
+      // a camera at all.
       const toCanvasXY = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const sx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const sy = (e.clientY - rect.top) * (canvas.height / rect.height);
+        return Camera.screenToWorld(sx, sy);
+      };
+      // Screen-space (pre-camera) coords — only used for gesture bookkeeping
+      // (drag-distance thresholds, pinch distance/midpoint, wheel anchor),
+      // never fed into hitTest.
+      const toScreenXY = (e) => {
         const rect = canvas.getBoundingClientRect();
         return {
           x: (e.clientX - rect.left) * (canvas.width / rect.width),
           y: (e.clientY - rect.top) * (canvas.height / rect.height)
         };
       };
-      canvas.addEventListener('pointerdown', (e) => {
-        if (this.state !== 'playing') return;
-        const { x, y } = toCanvasXY(e);
+
+      const runTap = (x, y) => {
         const hit = this.hitTest(x, y);
 
         if (hit && hit.type === 'tower') {
@@ -95,18 +112,94 @@
 
         this.selectedTower = null; window.Game.UI.updateUpgradePanel();
         this.pendingHireDesk = null; window.Game.UI.showHirePanel(null);
+      };
+
+      // A tap must survive a real down-then-up with (near-)zero movement in
+      // between, or it's a drag-to-pan instead — see pointermove/pointerup.
+      const DRAG_THRESHOLD = 8; // screen px
+      const activePointers = new Map(); // pointerId -> {startX,startY,lastX,lastY,moved}
+      let pinchStartDist = null;
+
+      canvas.addEventListener('pointerdown', (e) => {
+        if (this.state !== 'playing') return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return; // left-click/touch/pen only
+        const s = toScreenXY(e);
+        activePointers.set(e.pointerId, { startX: s.x, startY: s.y, lastX: s.x, lastY: s.y, moved: false });
+        if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+        if (activePointers.size === 2) {
+          const [a, b] = [...activePointers.values()];
+          pinchStartDist = Math.hypot(a.lastX - b.lastX, a.lastY - b.lastY);
+        }
       });
+
       canvas.addEventListener('pointermove', (e) => {
         if (this.state !== 'playing') { this.hoverTarget = null; canvas.style.cursor = 'default'; return; }
-        const { x, y } = toCanvasXY(e);
-        const hit = this.hitTest(x, y);
-        this.hoverTarget = hit;
-        canvas.style.cursor = hit ? 'pointer' : 'default';
+
+        const p = activePointers.get(e.pointerId);
+        if (!p) {
+          // No button/touch down — plain hover, unchanged from before.
+          const { x, y } = toCanvasXY(e);
+          const hit = this.hitTest(x, y);
+          this.hoverTarget = hit;
+          canvas.style.cursor = hit ? 'pointer' : 'default';
+          return;
+        }
+
+        const s = toScreenXY(e);
+
+        if (activePointers.size >= 2) {
+          // Pinch: distance-based zoom around the pinch midpoint, plus pan
+          // by however much that midpoint itself drifted (two-finger pan).
+          p.moved = true;
+          this.hoverTarget = null;
+          const [[idA, a], [idB, b]] = [...activePointers.entries()];
+          const other = e.pointerId === idA ? b : a;
+          const midBeforeX = (p.lastX + other.lastX) / 2, midBeforeY = (p.lastY + other.lastY) / 2;
+          p.lastX = s.x; p.lastY = s.y;
+          const midAfterX = (p.lastX + other.lastX) / 2, midAfterY = (p.lastY + other.lastY) / 2;
+          const dist = Math.hypot(p.lastX - other.lastX, p.lastY - other.lastY);
+          if (pinchStartDist) {
+            Camera.zoomAround(dist / pinchStartDist, midAfterX, midAfterY);
+            pinchStartDist = dist;
+          }
+          Camera.panBy(midAfterX - midBeforeX, midAfterY - midBeforeY);
+          return;
+        }
+
+        // Single pointer: drag-vs-tap disambiguation.
+        const dx = s.x - p.lastX, dy = s.y - p.lastY;
+        if (!p.moved && Math.hypot(s.x - p.startX, s.y - p.startY) > DRAG_THRESHOLD) {
+          p.moved = true;
+          this.hoverTarget = null;
+        }
+        p.lastX = s.x; p.lastY = s.y;
+        if (p.moved) Camera.panBy(dx, dy);
       });
+
+      const endPointer = (e, allowTap) => {
+        const p = activePointers.get(e.pointerId);
+        activePointers.delete(e.pointerId);
+        if (activePointers.size < 2) pinchStartDist = null;
+        if (allowTap && p && !p.moved && this.state === 'playing') {
+          const { x, y } = toCanvasXY(e);
+          runTap(x, y);
+        }
+      };
+      canvas.addEventListener('pointerup', (e) => endPointer(e, true));
+      canvas.addEventListener('pointercancel', (e) => endPointer(e, false));
+
       canvas.addEventListener('pointerleave', () => {
         this.hoverTarget = null;
         canvas.style.cursor = 'default';
       });
+
+      canvas.addEventListener('wheel', (e) => {
+        if (this.state !== 'playing') return;
+        e.preventDefault();
+        const s = toScreenXY(e);
+        Camera.zoomAround(Math.pow(1.0015, -e.deltaY), s.x, s.y);
+      }, { passive: false });
+
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           this.selectedTower = null;
@@ -143,44 +236,16 @@
       });
     },
 
-    // Recomputes the board layout for the current viewport, then re-snaps
-    // every existing tower (exact — towers already store col/row) and enemy
-    // onto it. Also closes any open desk/upgrade popup since its on-screen
-    // anchor just moved.
+    // The world's pixel layout is fixed forever (see PATH.init at boot) —
+    // resizing only ever needs to resize the canvas backing store and let
+    // the camera re-clamp to the new viewport. Towers/enemies never move
+    // (their world coordinates didn't change), so there's nothing to
+    // re-derive here anymore. Still closes any open desk/upgrade popup
+    // since its on-screen anchor just moved.
     handleResize() {
-      // Capture each enemy's progress (0-1) along its CURRENT leg before the
-      // waypoint array is overwritten — relayout() mutates it in place, so
-      // this has to happen first or the "before" positions are already gone.
-      // Snapping straight to the wpIndex corner (the old approach) discarded
-      // that progress entirely, which read as enemies teleporting backward
-      // to the start of their leg (dramatically so on the long first leg)
-      // every time the window resized.
-      const legFractions = this.enemies.map(e => {
-        const a = e.waypoints[e.wpIndex];
-        const b = e.waypoints[e.wpIndex + 1];
-        if (!a || !b) return 0;
-        const legDist = Math.hypot(b.x - a.x, b.y - a.y);
-        if (legDist <= 0) return 0;
-        const travelled = Math.hypot(e.x - a.x, e.y - a.y);
-        return Math.max(0, Math.min(1, travelled / legDist));
-      });
-
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      PATH.relayout(canvas.width, canvas.height);
-      for (const t of this.towers) {
-        const c = PATH.cellCenter(t.col, t.row);
-        t.x = c.x; t.y = c.y;
-      }
-      this.enemies.forEach((e, i) => {
-        const a = e.waypoints[e.wpIndex];
-        const b = e.waypoints[e.wpIndex + 1];
-        if (!a) return;
-        if (!b) { e.x = a.x; e.y = a.y; return; }
-        const frac = legFractions[i];
-        e.x = a.x + (b.x - a.x) * frac;
-        e.y = a.y + (b.y - a.y) * frac;
-      });
+      window.Game.Camera.onResize(canvas.width, canvas.height);
       this.selectedTower = null; window.Game.UI.updateUpgradePanel();
       this.pendingHireDesk = null; window.Game.UI.showHirePanel(null);
     },
@@ -221,7 +286,11 @@
     // clicks that land near a tile edge) beats the empty coffee spot, which
     // beats an empty desk.
     hitTest(x, y) {
-      const hitTower = this.towers.find(t => Math.hypot(t.x - x, t.y - y) < 26);
+      // A constant SCREEN-space tap target (not world-space) — otherwise a
+      // 26px radius shrinks to a few unusable screen-pixels once the camera
+      // auto-fits a phone screen zoomed way out.
+      const R = 26 / window.Game.Camera.zoom;
+      const hitTower = this.towers.find(t => Math.hypot(t.x - x, t.y - y) < R);
       if (hitTower) return { type: 'tower', tower: hitTower };
 
       const cell = PATH.screenToCell(x, y);
@@ -654,6 +723,7 @@
 
     drawEffects() {
       for (const fx of this.effects) {
+        if (fx.type === 'bigPayday') continue; // drawn in drawScreenEffects instead — see there
         const a = Math.max(0, fx.life / fx.maxLife);
         ctx.save();
         ctx.globalAlpha = a;
@@ -686,25 +756,38 @@
           ctx.shadowColor = fx.color; ctx.shadowBlur = 8;
           ctx.fillStyle = fx.color;
           ctx.fillText(fx.text, 0, 0);
-        } else if (fx.type === 'bigPayday') {
-          // A big funding injection landing (stage close / Scale-Up
-          // milestone) is a bigger deal than a per-tower pickup — dead
-          // center of the screen, large, and drifting up slowly as it fades
-          // rather than the quick small pop-up used for per-tower amounts.
-          const riseY = fx.y - (1 - a) * 70;
-          const popT = Math.min(1, (fx.maxLife - fx.life) / 0.25);
-          const scale = 0.85 + popT * 0.15;
-          ctx.translate(fx.x, riseY);
-          ctx.scale(scale, scale);
-          ctx.font = 'bold 64px "Arial Black", Arial, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.lineWidth = 6;
-          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-          ctx.strokeText(fx.text, 0, 0);
-          ctx.shadowColor = '#39ff88'; ctx.shadowBlur = 28;
-          ctx.fillStyle = '#39ff88';
-          ctx.fillText(fx.text, 0, 0);
         }
+        ctx.restore();
+      }
+    },
+
+    // bigPayday is authored in raw viewport coordinates (dead center of the
+    // screen, always — see below) rather than world coordinates, so unlike
+    // every other effect it must draw OUTSIDE the camera transform. render()
+    // calls this after ctx.restore(), once the camera transform is gone.
+    drawScreenEffects() {
+      for (const fx of this.effects) {
+        if (fx.type !== 'bigPayday') continue;
+        const a = Math.max(0, fx.life / fx.maxLife);
+        ctx.save();
+        ctx.globalAlpha = a;
+        // A big funding injection landing (stage close / Scale-Up
+        // milestone) is a bigger deal than a per-tower pickup — dead
+        // center of the screen, large, and drifting up slowly as it fades
+        // rather than the quick small pop-up used for per-tower amounts.
+        const riseY = fx.y - (1 - a) * 70;
+        const popT = Math.min(1, (fx.maxLife - fx.life) / 0.25);
+        const scale = 0.85 + popT * 0.15;
+        ctx.translate(fx.x, riseY);
+        ctx.scale(scale, scale);
+        ctx.font = 'bold 64px "Arial Black", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.strokeText(fx.text, 0, 0);
+        ctx.shadowColor = '#39ff88'; ctx.shadowBlur = 28;
+        ctx.fillStyle = '#39ff88';
+        ctx.fillText(fx.text, 0, 0);
         ctx.restore();
       }
     },
@@ -713,8 +796,12 @@
       ctx.save();
       if (this.shakeTimer > 0 && this.state === 'playing') {
         const mag = this.shakeTimer * 18;
+        // Screen-space shake, applied BEFORE the camera transform below —
+        // if it were applied after, its visual magnitude would get scaled
+        // by zoom (invisible zoomed-out on a phone, huge zoomed-in).
         ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
       }
+      window.Game.Camera.applyTransform(ctx);
       PATH.drawBackground(ctx);
       this.drawAuraCircles(ctx);
       this.drawDesks(ctx);
@@ -753,6 +840,7 @@
       }
       ctx.restore();
 
+      this.drawScreenEffects();
       if (this.state === 'paused') this.drawPausedOverlay(ctx);
     },
 

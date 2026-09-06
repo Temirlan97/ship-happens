@@ -15,7 +15,7 @@ const JS_DIR = path.resolve(__dirname, '../../js');
 // Core.init(), which starts the real rAF game loop — not something any
 // test wants running in the background.
 const SCRIPT_ORDER = [
-  'config.js', 'assets.js', 'audio.js', 'path.js',
+  'config.js', 'assets.js', 'audio.js', 'path.js', 'camera.js',
   'entities.js', 'waves.js', 'game.js', 'ui.js'
 ];
 

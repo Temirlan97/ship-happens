@@ -1,14 +1,14 @@
-// Isometric board on a TRUE projection, sized to fill the viewport and kept
-// in sync with it live (see PATH.init/relayout, called from game.js) — using
-// real generated office art (assets/tiles/, see assets/source_*.jpeg).
+// Isometric board on a TRUE projection — using real generated office art
+// (assets/tiles/, see assets/source_*.jpeg).
 //
 // Projection: classic 2:1 isometric — x = originX + (col-row)*(TILE_W/2),
 // y = originY + (col+row)*(TILE_H/2). Enemy movement/tower targeting in
 // entities.js/game.js operate purely on these pixel coordinates already, so
 // this formula is the ENTIRE grid-geometry story; pathing/placement logic
-// elsewhere is untouched. On resize, game.js re-derives every tower's pixel
-// position from its stored col/row via a fresh cellCenter() call, and snaps
-// enemies to their last-passed waypoint — see Core.handleResize.
+// elsewhere is untouched. PATH.init is called exactly once at boot with a
+// FIXED reference size (see game.js) — the world's own pixel layout never
+// changes again after that; window resizing is handled entirely by
+// js/camera.js panning/zooming a view onto this fixed world instead.
 (function () {
   const CFG = window.Game.Config;
   const { COLS, ROWS } = CFG;

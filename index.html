@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- user-scalable=no: the game implements its own pinch/wheel zoom on the
+     canvas (see js/camera.js) — without this, Safari's native double-tap/
+     pinch page-zoom fights with it (touch-action:none on the canvas alone
+     doesn't reliably stop that gesture in WebKit). -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Ship Happens</title>
 <script
   src="https://js-de.sentry-cdn.com/3c3fc9199685abeddb01c623b96e4255.min.js"
@@ -120,6 +124,7 @@
 <script src="js/assets.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/path.js"></script>
+<script src="js/camera.js"></script>
 <script src="js/entities.js"></script>
 <script src="js/waves.js"></script>
 <script src="js/game.js"></script>
