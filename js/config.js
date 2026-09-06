@@ -63,9 +63,13 @@
     // teammate can be hired. Clicking an empty one opens a role picker.
     // Replaces the old "click any buildable tile" placement + headcount cap:
     // the number of desks IS the team-size ceiling now, no separate number.
+    // The col:14 pair used to sit on adjacent rows (2 and 3) with no cell
+    // between them at all — visually cramped and hard to click distinctly.
+    // Row 3 moved to row 4 to open a one-cell gap (see path.js's
+    // FORCED_PROPS for the decoration guaranteed to land in it).
     DESK_POSITIONS: [
       { col: 2, row: 0 }, { col: 5, row: 0 }, { col: 8, row: 0 }, { col: 11, row: 0 },
-      { col: 14, row: 2 }, { col: 14, row: 3 }, { col: 5, row: 3 },
+      { col: 14, row: 2 }, { col: 14, row: 4 }, { col: 5, row: 3 },
       { col: 9, row: 5 }, { col: 1, row: 5 }, { col: 1, row: 7 },
       { col: 4, row: 9 }, { col: 12, row: 9 }
     ],

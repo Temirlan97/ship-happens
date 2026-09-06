@@ -95,6 +95,10 @@
   let propMap = null; // "col,row" -> standalone decor prop key, sparse, playable area only
   let motes = null;
   const DECOR_PROPS = ['prop_watercooler', 'prop_bookshelf', 'prop_whiteboard', 'prop_beanbag', 'prop_pizzaboxes'];
+  // Cells that always get a specific decor prop, bypassing the random roll
+  // below — used to guarantee a visual buffer between two desks placed just
+  // one cell apart (col:14, rows 2 and 4), rather than leaving it to chance.
+  const FORCED_PROPS = { '14,3': 'prop_bookshelf' };
   function buildTileMap() {
     let seed = 918273;
     const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed % 10000) / 10000; };
@@ -109,6 +113,7 @@
         const isDeskCell = CFG.DESK_POSITIONS.some(d => d.col === col && d.row === row) ||
           (col === CFG.COFFEE_SPOT.col && row === CFG.COFFEE_SPOT.row);
         if (isDeskCell) { tileMap[k] = 'tile_grass'; continue; } // keep desk tiles plain so the marker reads clearly
+        if (FORCED_PROPS[k]) { tileMap[k] = 'tile_grass'; propMap[k] = FORCED_PROPS[k]; continue; }
         const roll = rand();
         if (roll < 0.10) tileMap[k] = 'tile_grass_crystals';
         else if (roll < 0.17) tileMap[k] = 'tile_grass_rocks';
