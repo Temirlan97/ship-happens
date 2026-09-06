@@ -226,4 +226,14 @@ describe('Core.restart', () => {
     expect(Core.waves.waveIndex).toBe(-1);
     expect(Core.state).toBe('playing');
   });
+
+  it('resets acquisition-offer progress too', () => {
+    Core.acquisitionMilestoneIndex = 2;
+    Core.pendingAcquisitionPrice = 999;
+    Core.gameOverReason = 'acquired';
+    Core.restart();
+    expect(Core.acquisitionMilestoneIndex).toBe(0);
+    expect(Core.pendingAcquisitionPrice).toBeNull();
+    expect(Core.gameOverReason).toBe('bankrupt');
+  });
 });

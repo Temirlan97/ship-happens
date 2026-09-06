@@ -54,6 +54,13 @@
     // Confirmation-dialog bookkeeping — see openConfirmDialog/closeConfirmDialog.
     pendingConfirmAction: null,
     dialogResumeToPlaying: false,
+    // Acquisition-offer bookkeeping — see openAcquisitionOffer/acceptAcquisition/
+    // declineAcquisition. An ever-incrementing index (never re-derived from
+    // budget) so a declined offer can't re-trigger just because budget is
+    // still above that same threshold next frame.
+    acquisitionMilestoneIndex: 0,
+    pendingAcquisitionPrice: null,
+    gameOverReason: 'bankrupt', // 'bankrupt' | 'acquired'
     // Advances only inside update() (which only runs while state==='playing'),
     // so every decorative animation that reads this instead of
     // performance.now() freezes exactly where it was when paused.
@@ -579,6 +586,27 @@
       window.Game.UI.updateHUD();
     },
 
+    // Unlike openConfirmDialog, this only ever opens from the end-of-frame
+    // check in update() (see there), which only ever runs while
+    // state==='playing' — so there's no "was it already paused" case to
+    // track, unlike Start Over which can be clicked from either state.
+    openAcquisitionOffer() {
+      this.state = 'paused';
+      this.pendingAcquisitionPrice = Math.round(this.budget * CFG.ACQUISITION_PRICE_MULT);
+      window.Game.UI.showAcquisitionDialog();
+      window.Game.UI.updateHUD();
+    },
+    acceptAcquisition() {
+      window.Game.UI.hideAcquisitionDialog();
+      this.gameOver('acquired');
+    },
+    declineAcquisition() {
+      window.Game.UI.hideAcquisitionDialog();
+      this.acquisitionMilestoneIndex++;
+      this.state = 'playing';
+      window.Game.UI.updateHUD();
+    },
+
     toggleMute() {
       this.muted = !this.muted;
       window.Game.Audio.setMuted(this.muted);
@@ -592,6 +620,9 @@
       this.speed = 1;
       this.negativeBudgetTimer = 0;
       this.autoPausedByVisibility = false;
+      this.acquisitionMilestoneIndex = 0;
+      this.pendingAcquisitionPrice = null;
+      this.gameOverReason = 'bankrupt';
       this.stats = { income: 0, salaries: 0, lost: 0, kills: 0 };
       Object.keys(this.cardCooldowns).forEach(k => (this.cardCooldowns[k] = 0));
       this.waves = new WaveManager();
@@ -603,8 +634,9 @@
       window.Game.Leaderboard.runStart();
     },
 
-    gameOver() {
+    gameOver(reason = 'bankrupt') {
       this.state = 'gameover';
+      this.gameOverReason = reason;
       this.lastReachedSprint = Math.max(1, this.waves.displayWaveNumber);
       if (this.lastReachedSprint > this.bestSprint) { this.bestSprint = this.lastReachedSprint; saveBestSprint(this.lastReachedSprint); }
       window.Game.Audio.gameOver();
@@ -696,11 +728,23 @@
       // scattered ones that could each trigger it independently.
       if (this.budget < 0) {
         this.negativeBudgetTimer = this.negativeBudgetTimer > 0 ? this.negativeBudgetTimer - dt : CFG.NEGATIVE_BUDGET_GRACE;
-        if (this.negativeBudgetTimer <= 0) { this.gameOver(); return; }
+        if (this.negativeBudgetTimer <= 0) { this.gameOver('bankrupt'); return; }
       } else if (this.negativeBudgetTimer > 0) {
         this.negativeBudgetTimer = 0;
         window.Game.UI.showToast('Back in the black — crisis averted.');
       }
+
+      // Same deferred-to-end-of-frame reasoning as the negative-budget check
+      // above. Uses an ever-incrementing index (never re-derived from
+      // budget) so a declined offer can't re-trigger merely because budget
+      // is still above that threshold. If a single frame's budget jump
+      // overshoots multiple thresholds at once (unlikely with current
+      // injection sizes, not impossible in Scale-Up), only the next unmet
+      // one is offered here; declining resumes play, and the very next
+      // frame's check immediately offers the following one too — that's
+      // intentional chaining, not a bug.
+      const nextAcquisitionThreshold = window.Game.acquisitionThresholdFor(this.acquisitionMilestoneIndex);
+      if (this.budget >= nextAcquisitionThreshold) { this.openAcquisitionOffer(); return; }
 
       window.Game.UI.updateHUD();
     },

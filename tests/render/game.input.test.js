@@ -517,3 +517,90 @@ describe('leaderboard integration', () => {
     expect(hideSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('acquisition offers', () => {
+  it('opens the offer dialog, paused, with the price shown', () => {
+    Core.budget = CFG.ACQUISITION_MILESTONES[0];
+    Core.update(0.016);
+    expect(Core.state).toBe('paused');
+    expect(document.getElementById('acquisitionDialog').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('acquisitionMessage').textContent).toContain(Game.fmt(Core.pendingAcquisitionPrice));
+  });
+
+  it('does not re-open on later frames while budget stays above the same (already-declined) threshold', () => {
+    Core.budget = CFG.ACQUISITION_MILESTONES[0];
+    Core.update(0.016);
+    Core.declineAcquisition();
+    Core.update(0.016);
+    Core.update(0.016);
+    expect(Core.state).toBe('playing');
+    expect(document.getElementById('acquisitionDialog').classList.contains('hidden')).toBe(true);
+  });
+
+  it('declining resumes play and leaves towers/enemies completely untouched', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.budget = CFG.ACQUISITION_MILESTONES[0];
+    Core.update(0.016);
+    Core.declineAcquisition();
+    expect(Core.state).toBe('playing');
+    expect(Core.towers).toHaveLength(1);
+    expect(Core.acquisitionMilestoneIndex).toBe(1);
+  });
+
+  it('declining then crossing the next milestone offers again', () => {
+    Core.budget = CFG.ACQUISITION_MILESTONES[0];
+    Core.update(0.016);
+    Core.declineAcquisition();
+    Core.budget = CFG.ACQUISITION_MILESTONES[1];
+    Core.update(0.016);
+    expect(Core.state).toBe('paused');
+    expect(document.getElementById('acquisitionDialog').classList.contains('hidden')).toBe(false);
+  });
+
+  it('the decline button (real click) does the same thing as calling declineAcquisition directly', () => {
+    Core.budget = CFG.ACQUISITION_MILESTONES[0];
+    Core.update(0.016);
+    document.getElementById('acquisitionDeclineBtn').click();
+    expect(Core.state).toBe('playing');
+    expect(document.getElementById('acquisitionDialog').classList.contains('hidden')).toBe(true);
+  });
+
+  it('accepting ends the run as "acquired" and still flows into the leaderboard pipeline', () => {
+    vi.spyOn(Game.Leaderboard, 'finishRun').mockResolvedValue({ qualifiesForName: false, rank: null });
+    vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([]);
+    Core.budget = CFG.ACQUISITION_MILESTONES[0];
+    Core.update(0.016);
+    const price = Core.pendingAcquisitionPrice;
+    document.getElementById('acquisitionAcceptBtn').click();
+    expect(Core.state).toBe('gameover');
+    expect(Core.gameOverReason).toBe('acquired');
+    expect(document.getElementById('acquisitionDialog').classList.contains('hidden')).toBe(true);
+    expect(Game.Leaderboard.finishRun).toHaveBeenCalledWith(Core.lastReachedSprint, Core.budget, Core.stats);
+    expect(price).toBe(Core.budget * CFG.ACQUISITION_PRICE_MULT);
+  });
+
+  it('updateHUD shows the "Acquired!" title and price banner for an acquired ending', () => {
+    Core.state = 'gameover';
+    Core.gameOverReason = 'acquired';
+    Core.pendingAcquisitionPrice = 9000000;
+    Game.UI.updateHUD();
+    expect(document.getElementById('gameoverTitle').textContent).toBe('Acquired!');
+    expect(document.getElementById('acquisitionPriceBanner').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('statAcquisitionPrice').textContent).toBe(Game.fmt(9000000));
+  });
+
+  it('updateHUD shows the bankruptcy title and hides the price banner for a bankrupt ending', () => {
+    Core.state = 'gameover';
+    Core.gameOverReason = 'bankrupt';
+    Game.UI.updateHUD();
+    expect(document.getElementById('gameoverTitle').textContent).toBe('Ran Out of Money');
+    expect(document.getElementById('acquisitionPriceBanner').classList.contains('hidden')).toBe(true);
+  });
+
+  it('does not fire below the first threshold', () => {
+    Core.budget = CFG.ACQUISITION_MILESTONES[0] - 1;
+    Core.update(0.016);
+    expect(Core.state).not.toBe('paused');
+  });
+});

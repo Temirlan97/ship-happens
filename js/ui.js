@@ -30,6 +30,9 @@
     el('nameDialogSubmitBtn').addEventListener('click', () => submitNameDialog());
     el('nameDialogInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitNameDialog(); });
     el('nameDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
+    el('acquisitionAcceptBtn').addEventListener('click', () => core.acceptAcquisition());
+    el('acquisitionDeclineBtn').addEventListener('click', () => core.declineAcquisition());
+    el('acquisitionDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
     renderTimeline();
     showScreen('start');
     updateHUD();
@@ -195,7 +198,10 @@
     el('speedBtn').classList.toggle('active', core.speed > 1);
 
     if (core.state === 'gameover') {
-      el('gameoverTitle').textContent = 'Ran Out of Money';
+      const acquired = core.gameOverReason === 'acquired';
+      el('gameoverTitle').textContent = acquired ? 'Acquired!' : 'Ran Out of Money';
+      el('acquisitionPriceBanner').classList.toggle('hidden', !acquired);
+      if (acquired) el('statAcquisitionPrice').textContent = window.Game.fmt(core.pendingAcquisitionPrice);
       const s = core.stats;
       el('statSprintValue').textContent = core.lastReachedSprint || 1;
       el('statBestValue').textContent = core.bestSprint;
@@ -360,11 +366,22 @@
     section.classList.remove('hidden');
   }
 
+  function showAcquisitionDialog() {
+    el('acquisitionMessage').textContent =
+      `You've grown Ship Happens to ${window.Game.fmt(core.budget)}. A buyer wants to acquire the whole ` +
+      `company for ${window.Game.fmt(core.pendingAcquisitionPrice)} — cash out, or keep building?`;
+    el('acquisitionDialog').classList.remove('hidden');
+  }
+  function hideAcquisitionDialog() {
+    el('acquisitionDialog').classList.add('hidden');
+  }
+
   window.Game.UI = {
     init, updateHUD, showScreen,
     updateUpgradePanel, positionUpgradePanel, showToast,
     renderTimeline, updateTimeline, showHirePanel, refreshHirePanel,
     showConfirmDialog, hideConfirmDialog,
-    showNameDialog, hideNameDialog, renderLeaderboard
+    showNameDialog, hideNameDialog, renderLeaderboard,
+    showAcquisitionDialog, hideAcquisitionDialog
   };
 })();

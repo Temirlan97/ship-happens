@@ -152,7 +152,17 @@
     ],
     SCALEUP_LOOP_SPRINTS: 5, // recurring injection cadence once inside Scale-Up
     SCALEUP_INJECTION_BASE: 40000,
-    SCALEUP_INJECTION_GROWTH: 15000
+    SCALEUP_INJECTION_GROWTH: 15000,
+
+    // Acquisition offers: at these cash milestones, a buyer offers to
+    // acquire the company for ACQUISITION_PRICE_MULT times the current
+    // budget. The four explicit values don't share a constant ratio
+    // (3M->10M is x3.33, 10M->50M is x5, 50M->100M is x2), so past the
+    // last one, thresholds keep escalating at a flat x5 each time instead
+    // — see window.Game.acquisitionThresholdFor below.
+    ACQUISITION_MILESTONES: [3000000, 10000000, 50000000, 100000000],
+    ACQUISITION_MILESTONE_GROWTH: 5,
+    ACQUISITION_PRICE_MULT: 3
   };
 
   window.Game = window.Game || {};
@@ -161,4 +171,15 @@
   // so real-scale figures (thousands of dollars) get thousands separators
   // instead of running digits together.
   window.Game.fmt = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
+  // The cash threshold for the Nth acquisition offer (0-indexed). Hand-tuned
+  // for the first ACQUISITION_MILESTONES.length offers, then continues
+  // geometrically forever so Scale-Up's endless budget growth always has a
+  // next offer somewhere ahead. A pure function (not a Core method) so it's
+  // trivially testable without instantiating Core.
+  window.Game.acquisitionThresholdFor = (index) => {
+    const list = Config.ACQUISITION_MILESTONES;
+    if (index < list.length) return list[index];
+    const extraSteps = index - list.length + 1;
+    return list[list.length - 1] * Math.pow(Config.ACQUISITION_MILESTONE_GROWTH, extraSteps);
+  };
 })();

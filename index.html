@@ -92,6 +92,18 @@
     </div>
   </div>
 
+  <div id="acquisitionDialog" class="dialog-overlay hidden">
+    <div class="dialog-card dialog-card-acquisition">
+      <img id="acquisitionFigure" class="acquisition-figure" src="assets/characters/acquirer.png" alt="">
+      <div class="dialog-title">Someone Wants to Buy You Out</div>
+      <p class="dialog-message" id="acquisitionMessage"></p>
+      <div class="dialog-actions">
+        <button id="acquisitionDeclineBtn" class="dialog-btn dialog-btn-secondary">Stay Independent</button>
+        <button id="acquisitionAcceptBtn" class="dialog-btn dialog-btn-primary">Sell the Company</button>
+      </div>
+    </div>
+  </div>
+
   <div id="upgradePanel" class="upgrade-panel hidden">
     <div id="upPreview" class="up-preview"></div>
     <div id="upNextName" class="up-next-name"></div>
@@ -119,6 +131,10 @@
         <div class="stats-hero-number" id="statSprintValue">1</div>
         <div class="stats-hero-label">Sprints Survived</div>
         <div class="stats-hero-best">Personal Best — Sprint <strong id="statBestValue">1</strong></div>
+      </div>
+      <div id="acquisitionPriceBanner" class="acquisition-price-banner hidden">
+        <div class="acquisition-price-label">Acquisition Price</div>
+        <div class="acquisition-price-value" id="statAcquisitionPrice">$0</div>
       </div>
       <div class="stats-grid">
         <div class="stat-tile stat-green">
