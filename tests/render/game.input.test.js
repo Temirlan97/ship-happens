@@ -382,6 +382,27 @@ describe('misc small Core methods not otherwise exercised', () => {
     expect(Core.muted).toBe(true);
   });
 
+  it('togglePause shows the full menu screen while paused and hides it again on resume', () => {
+    Core.state = 'playing';
+    Core.togglePause();
+    expect(document.getElementById('screen-menu').classList.contains('hidden')).toBe(false);
+    Core.togglePause();
+    expect(document.getElementById('screen-menu').classList.contains('hidden')).toBe(true);
+  });
+
+  it('dialog-driven pauses (confirm/acquisition) never bring up the menu screen behind them', () => {
+    Core.start(); // hides the menu, same as a real "not paused" moment
+    expect(document.getElementById('screen-menu').classList.contains('hidden')).toBe(true);
+    Core.openConfirmDialog('Sure?', () => {});
+    expect(Core.state).toBe('paused');
+    expect(document.getElementById('screen-menu').classList.contains('hidden')).toBe(true);
+    Core.closeConfirmDialog(false);
+
+    Core.openAcquisitionOffer();
+    expect(Core.state).toBe('paused');
+    expect(document.getElementById('screen-menu').classList.contains('hidden')).toBe(true);
+  });
+
   describe('openConfirmDialog / closeConfirmDialog', () => {
     it('pauses the game and shows the dialog when opened while playing', () => {
       Core.state = 'playing';
@@ -415,11 +436,14 @@ describe('misc small Core methods not otherwise exercised', () => {
       expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
     });
 
-    it('the restart button opens the dialog, and confirming it actually restarts the run', () => {
+    // Start Over now lives inside the pause menu (see the "main menu"
+    // describe block below) — it's only ever clicked while state is
+    // already 'paused', not directly from 'playing'.
+    it('the menu Start Over button opens the dialog, and confirming it actually restarts the run', () => {
       const d = CFG.DESK_POSITIONS[0];
       Core.hireAt(d.col, d.row, 'engineer');
-      Core.state = 'playing';
-      document.getElementById('restartRunBtn').click();
+      Core.state = 'paused';
+      document.getElementById('menuStartOverBtn').click();
       expect(Core.state).toBe('paused');
       expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(false);
 
@@ -433,11 +457,11 @@ describe('misc small Core methods not otherwise exercised', () => {
     it('the cancel button closes the dialog without restarting', () => {
       const d = CFG.DESK_POSITIONS[0];
       Core.hireAt(d.col, d.row, 'engineer');
-      Core.state = 'playing';
-      document.getElementById('restartRunBtn').click();
+      Core.state = 'paused';
+      document.getElementById('menuStartOverBtn').click();
       document.getElementById('confirmCancelBtn').click();
       expect(Core.towers).toHaveLength(1); // untouched
-      expect(Core.state).toBe('playing');
+      expect(Core.state).toBe('paused');
       expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
     });
   });

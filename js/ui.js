@@ -9,7 +9,6 @@
 
   function init(coreRef) {
     core = coreRef;
-    el('startBtn').addEventListener('click', () => core.start());
     el('restartBtn').addEventListener('click', () => core.restart());
     el('nextSprintBtn').addEventListener('click', () => core.requestNextWave());
     el('pauseBtn').addEventListener('click', () => core.togglePause());
@@ -19,8 +18,15 @@
     el('fireBtn').addEventListener('click', (e) => { e.stopPropagation(); core.fireSelectedTower(); });
     el('upgradePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('hirePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
-    el('pauseOverlay').addEventListener('click', () => core.togglePause());
-    el('restartRunBtn').addEventListener('click', () => {
+    el('menuPlayBtn').addEventListener('click', () => {
+      if (core.state === 'paused') core.togglePause();
+      else core.start();
+    });
+    el('menuInstructionsBtn').addEventListener('click', () => showMenuPanel('instructions'));
+    el('menuLeaderboardBtn').addEventListener('click', () => showMenuPanel('leaderboard'));
+    el('instructionsBackBtn').addEventListener('click', () => showMenuPanel('main'));
+    el('leaderboardBackBtn').addEventListener('click', () => showMenuPanel('main'));
+    el('menuStartOverBtn').addEventListener('click', () => {
       core.openConfirmDialog('Your current run will be lost — budget, hires, and progress all reset.', () => core.restart());
     });
     el('confirmCancelBtn').addEventListener('click', () => core.closeConfirmDialog(false));
@@ -34,7 +40,7 @@
     el('acquisitionDeclineBtn').addEventListener('click', () => core.declineAcquisition());
     el('acquisitionDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
     renderTimeline();
-    showScreen('start');
+    showScreen('menu');
     updateHUD();
   }
 
@@ -192,7 +198,8 @@
     }
 
     el('pauseBtn').textContent = core.state === 'paused' ? 'Resume' : 'Pause';
-    el('pauseOverlay').classList.toggle('hidden', core.state !== 'paused');
+    el('menuPlayBtn').textContent = core.state === 'paused' ? 'Resume' : 'Play';
+    el('menuStartOverBtn').classList.toggle('hidden', core.state !== 'paused');
     el('muteBtn').textContent = core.muted ? 'Sound: Off' : 'Sound: On';
     el('speedValue').textContent = core.speed + 'x';
     el('speedBtn').classList.toggle('active', core.speed > 1);
@@ -300,9 +307,38 @@
   }
 
   function showScreen(name) {
-    ['start', 'gameover'].forEach((n) => {
+    ['menu', 'gameover'].forEach((n) => {
       const screen = el('screen-' + n);
       if (screen) screen.classList.toggle('hidden', n !== name);
+    });
+    // Every fresh open of the menu (game start, a new pause) should land on
+    // the main panel — not wherever the player last navigated to before it
+    // was hidden.
+    if (name === 'menu') showMenuPanel('main');
+  }
+
+  // Which of the menu's three panels is showing — pure presentation state,
+  // not part of Core.state (pausing/starting doesn't care which one the
+  // player is looking at).
+  function showMenuPanel(name) {
+    el('menuMain').classList.toggle('hidden', name !== 'main');
+    el('menuInstructionsPanel').classList.toggle('hidden', name !== 'instructions');
+    el('menuLeaderboardPanel').classList.toggle('hidden', name !== 'leaderboard');
+    if (name === 'leaderboard') showMenuLeaderboard();
+  }
+
+  // Fetched fresh every time the panel opens (not just after a run ends,
+  // unlike the gameover screen's leaderboard) so it's always current.
+  function showMenuLeaderboard() {
+    window.Game.Leaderboard.fetchLeaderboard().then((entries) => {
+      const empty = el('menuLeaderboardEmpty');
+      if (!entries || entries.length === 0) {
+        el('menuLeaderboardList').innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+      renderLeaderboardRows(el('menuLeaderboardList'), entries);
     });
   }
 
@@ -347,11 +383,10 @@
   // Renders the top-10 board on the game-over stats card. `myRank`/`mine`
   // aren't part of the API response — the row is matched by name only
   // (best-effort highlight, not a security-sensitive distinction).
-  function renderLeaderboard(entries) {
-    const section = el('leaderboardSection');
-    const list = el('leaderboardList');
-    if (!entries || entries.length === 0) { section.classList.add('hidden'); return; }
-    list.innerHTML = '';
+  // Shared between the gameover screen's leaderboard and the menu's —
+  // identical row markup, two different list elements/trigger points.
+  function renderLeaderboardRows(listEl, entries) {
+    listEl.innerHTML = '';
     entries.forEach((entry, i) => {
       const li = document.createElement('li');
       li.className = 'leaderboard-row';
@@ -366,8 +401,14 @@
         <span class="leaderboard-sprint">Sprint ${entry.sprint}</span>
       `;
       li.querySelector('.leaderboard-name').textContent = entry.name;
-      list.appendChild(li);
+      listEl.appendChild(li);
     });
+  }
+
+  function renderLeaderboard(entries) {
+    const section = el('leaderboardSection');
+    if (!entries || entries.length === 0) { section.classList.add('hidden'); return; }
+    renderLeaderboardRows(el('leaderboardList'), entries);
     section.classList.remove('hidden');
   }
 
@@ -383,7 +424,7 @@
   }
 
   window.Game.UI = {
-    init, updateHUD, showScreen,
+    init, updateHUD, showScreen, showMenuPanel,
     updateUpgradePanel, positionUpgradePanel, showToast,
     renderTimeline, updateTimeline, showHirePanel, refreshHirePanel,
     showConfirmDialog, hideConfirmDialog,

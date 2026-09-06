@@ -42,7 +42,6 @@
       <button id="speedBtn" class="icon-btn speed-btn"><span id="speedValue">1x</span></button>
       <button id="pauseBtn" class="icon-btn">Pause</button>
       <button id="muteBtn" class="icon-btn">Sound: On</button>
-      <button id="restartRunBtn" class="icon-btn icon-btn-danger">Start Over</button>
     </div>
   </div>
 
@@ -61,11 +60,6 @@
     <span id="timelineBest" class="timeline-best">Best <strong id="bestSprintValue">0</strong></span>
     <div id="timelineTrack"></div>
     <span id="timelineNext"></span>
-  </div>
-
-  <div id="pauseOverlay" class="pause-overlay hidden">
-    <span class="pause-text pause-text-default">PAUSED</span>
-    <span class="pause-text pause-text-hover">RESUME</span>
   </div>
 
   <div id="confirmDialog" class="dialog-overlay hidden">
@@ -117,10 +111,96 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <div id="screen-start" class="screen">
-    <h1>Ship Happens</h1>
-    <p>Hire your team, defend Production from bugs and incidents, and don't run out of money.</p>
-    <button id="startBtn" class="primary-btn">Launch</button>
+  <div id="screen-menu" class="screen">
+    <div id="menuMain" class="menu-panel">
+      <h1>Ship Happens</h1>
+      <p>Hire your team, defend Production from bugs and incidents, and don't run out of money.</p>
+      <div class="menu-actions">
+        <button id="menuPlayBtn" class="primary-btn">Play</button>
+        <button id="menuInstructionsBtn" class="menu-btn">Instructions</button>
+        <button id="menuLeaderboardBtn" class="menu-btn">Leaderboard</button>
+        <button id="menuStartOverBtn" class="menu-btn menu-btn-danger hidden">Start Over</button>
+      </div>
+    </div>
+
+    <div id="menuInstructionsPanel" class="menu-panel menu-subpanel hidden">
+      <button class="menu-back-btn" id="instructionsBackBtn">&larr; Back</button>
+      <h2 class="menu-subpanel-title">How to Play</h2>
+      <div class="instructions-scroll">
+        <div class="instruction-card">
+          <div class="instruction-icon instruction-icon-badge badge-budget">$</div>
+          <div class="instruction-text">
+            <div class="instruction-title">Objective</div>
+            <p>You're running a startup. Keep Production alive — hire teammates, stop threats, and don't run out of money.</p>
+          </div>
+        </div>
+        <div class="instruction-card">
+          <div class="instruction-icon instruction-icon-desk"></div>
+          <div class="instruction-text">
+            <div class="instruction-title">Hire at desks</div>
+            <p>Tap an empty desk and pick a role. Each hire defends the path automatically once they're seated.</p>
+          </div>
+        </div>
+        <div class="instruction-card instruction-card-roles">
+          <div class="instruction-text">
+            <div class="instruction-title">Your team</div>
+            <div class="instruction-roles">
+              <div class="instruction-role">
+                <div class="instruction-icon instruction-icon-small instruction-icon-engineer"></div>
+                <div><strong>Engineer</strong> — fast direct damage</div>
+              </div>
+              <div class="instruction-role">
+                <div class="instruction-icon instruction-icon-small instruction-icon-sre"></div>
+                <div><strong>SRE</strong> — splash damage</div>
+              </div>
+              <div class="instruction-role">
+                <div class="instruction-icon instruction-icon-small instruction-icon-qa"></div>
+                <div><strong>QA</strong> — slows &amp; chains</div>
+              </div>
+              <div class="instruction-role">
+                <div class="instruction-icon instruction-icon-small instruction-icon-pm"></div>
+                <div><strong>PM</strong> — passive income</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="instruction-card">
+          <div class="instruction-icon instruction-icon-bug"></div>
+          <div class="instruction-text">
+            <div class="instruction-title">Threats</div>
+            <p>Bugs, Competitors, and Incidents march toward Production. Let one through and it costs you Budget directly — Competitors also steal some of your cash.</p>
+          </div>
+        </div>
+        <div class="instruction-card">
+          <div class="instruction-icon instruction-icon-badge badge-budget">$</div>
+          <div class="instruction-text">
+            <div class="instruction-title">Budget &amp; Payroll</div>
+            <p>Payroll is due every sprint. Stay negative for too long and the company folds — kills and PMs bring cash back in.</p>
+          </div>
+        </div>
+        <div class="instruction-card">
+          <div class="instruction-icon instruction-icon-badge badge-green">SP</div>
+          <div class="instruction-text">
+            <div class="instruction-title">Sprints &amp; Funding</div>
+            <p>Sprints advance on their own. Reaching a new funding stage injects cash — watch the timeline on the left.</p>
+          </div>
+        </div>
+        <div class="instruction-card">
+          <div class="instruction-icon instruction-icon-badge badge-engineer">4x</div>
+          <div class="instruction-text">
+            <div class="instruction-title">Camera &amp; Speed</div>
+            <p>Pinch, scroll, or drag to pan and zoom. Use the speed button to fast-forward up to 4x.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="menuLeaderboardPanel" class="menu-panel menu-subpanel hidden">
+      <button class="menu-back-btn" id="leaderboardBackBtn">&larr; Back</button>
+      <h2 class="menu-subpanel-title">Top 10</h2>
+      <ol id="menuLeaderboardList" class="leaderboard-list"></ol>
+      <p id="menuLeaderboardEmpty" class="menu-empty hidden">No runs yet — be the first!</p>
+    </div>
   </div>
 
   <div id="screen-gameover" class="screen hidden">

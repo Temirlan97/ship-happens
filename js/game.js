@@ -229,6 +229,7 @@
           if (this.state === 'playing') {
             this.state = 'paused';
             this.autoPausedByVisibility = true;
+            window.Game.UI.showScreen('menu');
             window.Game.UI.updateHUD();
           }
         } else if (this.autoPausedByVisibility) {
@@ -558,8 +559,8 @@
     },
 
     togglePause() {
-      if (this.state === 'playing') this.state = 'paused';
-      else if (this.state === 'paused') this.state = 'playing';
+      if (this.state === 'playing') { this.state = 'paused'; window.Game.UI.showScreen('menu'); }
+      else if (this.state === 'paused') { this.state = 'playing'; window.Game.UI.showScreen(null); }
       window.Game.UI.updateHUD();
     },
 
@@ -979,16 +980,6 @@
       ctx.restore();
 
       this.drawScreenEffects();
-      if (this.state === 'paused') this.drawPausedOverlay(ctx);
-    },
-
-    // Just the dim — the icon/text/click affordance is the DOM #pauseOverlay
-    // element (see ui.js/CSS) so it can respond to hover and click directly.
-    drawPausedOverlay(ctx) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(8,12,20,0.45)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
     },
 
     loop(ts) {

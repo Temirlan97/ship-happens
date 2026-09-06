@@ -15,20 +15,65 @@ beforeEach(() => {
 });
 
 describe('UI.init', () => {
-  it('shows the start screen and hides the game-over screen', () => {
-    expect(el('screen-start').classList.contains('hidden')).toBe(false);
+  it('shows the menu screen (main panel) and hides the game-over screen', () => {
+    expect(el('screen-menu').classList.contains('hidden')).toBe(false);
     expect(el('screen-gameover').classList.contains('hidden')).toBe(true);
+    expect(el('menuMain').classList.contains('hidden')).toBe(false);
+    expect(el('menuInstructionsPanel').classList.contains('hidden')).toBe(true);
+    expect(el('menuLeaderboardPanel').classList.contains('hidden')).toBe(true);
   });
 
-  it('wires the Launch button to Core.start()', () => {
-    el('startBtn').click();
+  it('wires the Play button to Core.start()', () => {
+    el('menuPlayBtn').click();
     expect(Core.state).toBe('playing');
   });
 
-  it('wires the pause overlay click to Core.togglePause()', () => {
+  it('wires the Play button to Core.togglePause() (as Resume) when a run is paused', () => {
     Core.state = 'playing';
-    el('pauseOverlay').click();
+    Core.togglePause();
     expect(Core.state).toBe('paused');
+    el('menuPlayBtn').click();
+    expect(Core.state).toBe('playing');
+  });
+});
+
+describe('UI.showMenuPanel', () => {
+  it('switches between main/instructions/leaderboard and back again', () => {
+    el('menuInstructionsBtn').click();
+    expect(el('menuInstructionsPanel').classList.contains('hidden')).toBe(false);
+    expect(el('menuMain').classList.contains('hidden')).toBe(true);
+    el('instructionsBackBtn').click();
+    expect(el('menuMain').classList.contains('hidden')).toBe(false);
+    expect(el('menuInstructionsPanel').classList.contains('hidden')).toBe(true);
+
+    el('menuLeaderboardBtn').click();
+    expect(el('menuLeaderboardPanel').classList.contains('hidden')).toBe(false);
+    el('leaderboardBackBtn').click();
+    expect(el('menuMain').classList.contains('hidden')).toBe(false);
+    expect(el('menuLeaderboardPanel').classList.contains('hidden')).toBe(true);
+  });
+
+  it('fetches and renders the leaderboard when the panel opens', async () => {
+    vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([{ name: 'Alice', sprint: 9, reason: 'acquired' }]);
+    el('menuLeaderboardBtn').click();
+    await vi.waitFor(() => expect(el('menuLeaderboardList').children).toHaveLength(1));
+    expect(el('menuLeaderboardEmpty').classList.contains('hidden')).toBe(true);
+    expect(el('menuLeaderboardList').textContent).toContain('Alice');
+    expect(el('menuLeaderboardList').textContent).toContain('Acquired');
+  });
+
+  it('shows the empty state when there are no entries yet', async () => {
+    vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([]);
+    el('menuLeaderboardBtn').click();
+    await vi.waitFor(() => expect(el('menuLeaderboardEmpty').classList.contains('hidden')).toBe(false));
+    expect(el('menuLeaderboardList').children).toHaveLength(0);
+  });
+
+  it('shows the Start Over button only while a run is actually paused, not on the fresh start screen', () => {
+    expect(el('menuStartOverBtn').classList.contains('hidden')).toBe(true);
+    Core.state = 'playing';
+    Core.togglePause();
+    expect(el('menuStartOverBtn').classList.contains('hidden')).toBe(false);
   });
 });
 
@@ -168,7 +213,8 @@ describe('UI.updateHUD', () => {
     Core.speed = 2;
     UI.updateHUD();
     expect(el('pauseBtn').textContent).toBe('Resume');
-    expect(el('pauseOverlay').classList.contains('hidden')).toBe(false);
+    expect(el('menuPlayBtn').textContent).toBe('Resume');
+    expect(el('menuStartOverBtn').classList.contains('hidden')).toBe(false);
     expect(el('muteBtn').textContent).toBe('Sound: Off');
     expect(el('speedValue').textContent).toBe('2x');
     expect(el('speedBtn').classList.contains('active')).toBe(true);
@@ -321,13 +367,22 @@ describe('UI.showScreen', () => {
   it('shows exactly the named screen and hides the rest', () => {
     UI.showScreen('gameover');
     expect(el('screen-gameover').classList.contains('hidden')).toBe(false);
-    expect(el('screen-start').classList.contains('hidden')).toBe(true);
+    expect(el('screen-menu').classList.contains('hidden')).toBe(true);
   });
 
   it('hides every screen when passed null', () => {
     UI.showScreen(null);
-    expect(el('screen-start').classList.contains('hidden')).toBe(true);
+    expect(el('screen-menu').classList.contains('hidden')).toBe(true);
     expect(el('screen-gameover').classList.contains('hidden')).toBe(true);
+  });
+
+  it('resets to the main panel every time the menu is reopened', () => {
+    UI.showScreen('menu');
+    UI.showMenuPanel('instructions');
+    UI.showScreen(null);
+    UI.showScreen('menu');
+    expect(el('menuMain').classList.contains('hidden')).toBe(false);
+    expect(el('menuInstructionsPanel').classList.contains('hidden')).toBe(true);
   });
 });
 
