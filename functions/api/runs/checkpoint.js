@@ -5,7 +5,10 @@ export async function onRequestPost({ request, env }) {
   try { body = await request.json(); } catch { return badRequest('invalid json'); }
   const { secret, claimedSprint, budget, stats } = body || {};
   if (typeof secret !== 'string' || !secret) return badRequest('missing secret');
-  if (typeof claimedSprint !== 'number') return badRequest('missing claimedSprint');
+  if (!Number.isFinite(claimedSprint)) return badRequest('missing claimedSprint');
+  // Same treatment as finish.js — a non-finite/non-numeric claim just means
+  // "nothing to record" rather than letting garbage into the column.
+  const claimedBudget = Number.isFinite(budget) ? budget : null;
 
   const now = Date.now();
   const result = await env.DB.prepare(
@@ -20,7 +23,7 @@ export async function onRequestPost({ request, env }) {
       claimed_kills = ?
     WHERE session_secret = ? AND finished_at IS NULL`
   ).bind(
-    now, claimedSprint, budget ?? null,
+    now, claimedSprint, claimedBudget,
     stats?.income ?? null, stats?.salaries ?? null, stats?.lost ?? null, stats?.kills ?? null,
     secret
   ).run();

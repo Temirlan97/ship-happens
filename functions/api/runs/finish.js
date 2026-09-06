@@ -6,12 +6,16 @@ export async function onRequestPost({ request, env }) {
   try { body = await request.json(); } catch { return badRequest('invalid json'); }
   const { secret, claimedSprint, budget, stats, reason } = body || {};
   if (typeof secret !== 'string' || !secret) return badRequest('missing secret');
-  if (typeof claimedSprint !== 'number') return badRequest('missing claimedSprint');
+  if (!Number.isFinite(claimedSprint)) return badRequest('missing claimedSprint');
   // Whitelisted, not just stored verbatim — this is client-reported display
   // data (same trust level as the other claimed_* fields), not a value
   // anything security-sensitive branches on, but there's no reason to let
   // an arbitrary string into the column either.
   const endingReason = reason === 'acquired' ? 'acquired' : 'bankrupt';
+  // Same treatment: a non-finite/non-numeric claim just means "nothing to
+  // record" rather than being coerced into a number that could throw off
+  // the budget-ceiling plausibility check or the ranking query below.
+  const claimedBudget = Number.isFinite(budget) ? budget : null;
 
   const row = await env.DB.prepare(
     'SELECT created_at, checkpoint_count, finished_at FROM runs WHERE session_secret = ?'
@@ -24,7 +28,8 @@ export async function onRequestPost({ request, env }) {
   const { suspicious, reasons } = checkPlausibility({
     claimedSprint,
     elapsedSeconds,
-    checkpointCount: row.checkpoint_count
+    checkpointCount: row.checkpoint_count,
+    budget: claimedBudget
   });
 
   await env.DB.prepare(
@@ -42,7 +47,7 @@ export async function onRequestPost({ request, env }) {
       ending_reason = ?
     WHERE session_secret = ?`
   ).bind(
-    now, Math.round(elapsedSeconds), claimedSprint, budget ?? null,
+    now, Math.round(elapsedSeconds), claimedSprint, claimedBudget,
     stats?.income ?? null, stats?.salaries ?? null, stats?.lost ?? null, stats?.kills ?? null,
     suspicious ? 1 : 0, reasons.join(',') || null, endingReason,
     secret
@@ -54,7 +59,7 @@ export async function onRequestPost({ request, env }) {
     `SELECT COUNT(*) AS n FROM runs
      WHERE approved = 1 AND suspicious = 0 AND finished_at IS NOT NULL
        AND (claimed_sprint > ? OR (claimed_sprint = ? AND claimed_budget > ?))`
-  ).bind(claimedSprint, claimedSprint, budget ?? 0).first();
+  ).bind(claimedSprint, claimedSprint, claimedBudget ?? 0).first();
 
   const rank = (ahead?.n ?? 0) + 1;
   return json({ qualifiesForName: rank <= 10, rank });

@@ -28,7 +28,8 @@ export default defineConfig({
         'js/game.js': { statements: 90, branches: 85, functions: 90, lines: 90 },
         'functions/_shared/plausibility.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'functions/_shared/nameFilter.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
-        'functions/_shared/adminAuth.js': { statements: 100, branches: 100, functions: 100, lines: 100 }
+        'functions/_shared/adminAuth.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'functions/_shared/rateLimit.js': { statements: 100, branches: 100, functions: 100, lines: 100 }
       }
     }
   }

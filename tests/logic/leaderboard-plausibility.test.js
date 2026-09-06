@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CAMPAIGN_SPRINTS, ENDLESS_COUNT_GROWTH, SPRINTS, MAX_GAME_SPEED,
-  minSpawnMs, sprintFloorSeconds, checkPlausibility
+  CAMPAIGN_SPRINTS, ENDLESS_COUNT_GROWTH, SPRINTS, MAX_GAME_SPEED, START_BUDGET,
+  MAX_PLAUSIBLE_SPRINT, BUDGET_CEILING_PER_SECOND,
+  minSpawnMs, sprintFloorSeconds, budgetCeiling, checkPlausibility
 } from '../../functions/_shared/plausibility.js';
 import { loadGame } from '../helpers/loadGame.js';
 
@@ -18,6 +19,7 @@ describe('plausibility constants stay in sync with the real game config', () => 
     expect(CAMPAIGN_SPRINTS).toBe(CFG.CAMPAIGN_SPRINTS);
     expect(ENDLESS_COUNT_GROWTH).toBe(CFG.ENDLESS_COUNT_GROWTH);
     expect(SPRINTS).toEqual(CFG.SPRINTS);
+    expect(START_BUDGET).toBe(CFG.START_BUDGET);
   });
 
   it('MAX_GAME_SPEED matches the real cycleSpeed() ceiling', () => {
@@ -74,6 +76,31 @@ describe('sprintFloorSeconds', () => {
     const oneSprintMs = minSpawnMs(0);
     expect(sprintFloorSeconds(1)).toBeCloseTo((oneSprintMs / 1000) / MAX_GAME_SPEED, 6);
   });
+
+  it('clamps an absurd claimedSprint at MAX_PLAUSIBLE_SPRINT instead of looping forever', () => {
+    // Both should compute in real time (proof the loop is bounded) and
+    // agree exactly, since anything past the clamp is treated the same.
+    expect(sprintFloorSeconds(1e9)).toBe(sprintFloorSeconds(MAX_PLAUSIBLE_SPRINT));
+    expect(sprintFloorSeconds(MAX_PLAUSIBLE_SPRINT + 1)).toBe(sprintFloorSeconds(MAX_PLAUSIBLE_SPRINT));
+  });
+
+  it('treats a NaN claimedSprint as 0 rather than looping forever or throwing', () => {
+    expect(sprintFloorSeconds(NaN)).toBe(0);
+  });
+});
+
+describe('budgetCeiling', () => {
+  it('is exactly START_BUDGET at zero elapsed time', () => {
+    expect(budgetCeiling(0)).toBe(START_BUDGET);
+  });
+
+  it('grows linearly with elapsed real seconds at BUDGET_CEILING_PER_SECOND', () => {
+    expect(budgetCeiling(10)).toBe(START_BUDGET + BUDGET_CEILING_PER_SECOND * 10);
+  });
+
+  it('never goes below START_BUDGET for negative elapsed time (clock skew)', () => {
+    expect(budgetCeiling(-5)).toBe(START_BUDGET);
+  });
 });
 
 describe('checkPlausibility', () => {
@@ -109,5 +136,32 @@ describe('checkPlausibility', () => {
   it('can flag both reasons at once', () => {
     const result = checkPlausibility({ claimedSprint: 30, elapsedSeconds: 1, checkpointCount: 0 });
     expect(result.reasons).toEqual(expect.arrayContaining(['time_floor_violated', 'no_checkpoints']));
+  });
+
+  it('flags a budget claimed far above what the elapsed time could plausibly have earned', () => {
+    // A tiny claimed sprint keeps the time-floor/checkpoint checks quiet, so
+    // this isolates the budget ceiling specifically — the exact "low sprint,
+    // huge budget" forgery this check exists to close.
+    const result = checkPlausibility({ claimedSprint: 1, elapsedSeconds: 5, checkpointCount: 0, budget: 50_000_000 });
+    expect(result.suspicious).toBe(true);
+    expect(result.reasons).toEqual(['budget_ceiling_violated']);
+  });
+
+  it('does not flag a budget right at (or under) the ceiling for the elapsed time', () => {
+    const elapsedSeconds = 120;
+    const result = checkPlausibility({
+      claimedSprint: 1, elapsedSeconds, checkpointCount: 0, budget: budgetCeiling(elapsedSeconds)
+    });
+    expect(result.suspicious).toBe(false);
+  });
+
+  it('skips the budget check entirely when no budget is claimed', () => {
+    const result = checkPlausibility({ claimedSprint: 0, elapsedSeconds: 0, checkpointCount: 0, budget: null });
+    expect(result.suspicious).toBe(false);
+  });
+
+  it('ignores a non-finite budget claim rather than crashing or false-flagging', () => {
+    const result = checkPlausibility({ claimedSprint: 1, elapsedSeconds: 5, checkpointCount: 0, budget: NaN });
+    expect(result.suspicious).toBe(false);
   });
 });

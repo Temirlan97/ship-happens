@@ -1,5 +1,6 @@
 import { json, badRequest } from '../../../_shared/http.js';
 import { isAuthorized, unauthorizedResponse } from '../../../_shared/adminAuth.js';
+import { filterName } from '../../../_shared/nameFilter.js';
 
 export async function onRequestPatch({ request, env, params }) {
   if (!isAuthorized(request, env)) return unauthorizedResponse();
@@ -12,7 +13,14 @@ export async function onRequestPatch({ request, env, params }) {
   const sets = [];
   const values = [];
   if (typeof body.approved === 'boolean') { sets.push('approved = ?'); values.push(body.approved ? 1 : 0); }
-  if (typeof body.player_name === 'string') { sets.push('player_name = ?'); values.push(body.player_name.slice(0, 20)); }
+  // Same filter the public /api/runs/name path enforces — the admin panel
+  // is trusted, but there's no reason a curation edit should be able to
+  // (re-)introduce something the automated filter would otherwise catch.
+  if (typeof body.player_name === 'string') {
+    const filtered = filterName(body.player_name);
+    if (!filtered.ok) return badRequest('invalid player_name: ' + filtered.reason);
+    sets.push('player_name = ?'); values.push(filtered.cleaned);
+  }
   if (sets.length === 0) return badRequest('nothing to update');
 
   values.push(id);

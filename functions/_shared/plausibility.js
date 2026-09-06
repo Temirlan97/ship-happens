@@ -11,6 +11,11 @@
 // and forgets to update this file, CI fails instead of the plausibility
 // floor silently drifting out of sync with the real game.
 
+// Also hand-duplicated from js/config.js's Config.START_BUDGET — see
+// budgetCeiling below. Covered by the same drift-guard test as the other
+// constants in this block.
+export const START_BUDGET = 22000;
+
 export const CAMPAIGN_SPRINTS = 10;
 export const ENDLESS_COUNT_GROWTH = 0.12;
 export const SPRINTS = [
@@ -35,6 +40,20 @@ export const MAX_GAME_SPEED = 4;
 // received finish time — NOT to compensate for any uncertainty in the floor
 // itself (that's already a strict lower bound, see minSpawnMs below).
 export const FLOOR_SLACK = 0.85;
+
+// Hard ceiling on claimedSprint before it drives sprintFloorSeconds' loop —
+// without this, a client could submit an astronomically large claimedSprint
+// (e.g. 1e9) and force a single request to do unbounded work. minSpawnMs's
+// own per-wave cost grows with ENDLESS_COUNT_GROWTH (roughly quadratic
+// overall, not linear), so this can't just be "some big round number" — it
+// has to stay cheap even at the cap. 5000 measured at ~11ms for the full
+// loop, comfortably inside a Worker's CPU budget, while still describing a
+// multi-hour Scale-Up marathon (each sprint takes at least a few real
+// seconds even at 4x speed) that no real run is likely to ever reach.
+// Capping lower only ever makes the floor MORE lenient for anything beyond
+// it (see sprintFloorSeconds' own doc comment), never less — so this is
+// safe to keep well below "generous" if the cost curve ever demands it.
+export const MAX_PLAUSIBLE_SPRINT = 5000;
 
 // The exact per-wave spawn-scheduling loop from WaveManager.startNextWave,
 // returning the elapsed game-ms at which the LAST enemy of that wave spawns
@@ -63,20 +82,52 @@ export function minSpawnMs(waveIndex) {
 // Wait"), so it can only under-estimate the true minimum, never flag a
 // legitimately fast/skilled run as impossible.
 export function sprintFloorSeconds(claimedSprint) {
-  const n = Math.max(0, Math.floor(claimedSprint));
+  const n = Math.min(MAX_PLAUSIBLE_SPRINT, Math.max(0, Math.floor(claimedSprint) || 0));
   let totalMs = 0;
   for (let i = 0; i < n; i++) totalMs += minSpawnMs(i);
   return (totalMs / 1000) / MAX_GAME_SPEED;
 }
 
-// Combines the elapsed-time floor with a checkpoint-trail requirement —
-// together, the concrete answer to "make it hard to just inspect the page
-// and POST a forged score": a single forged request has no prior
-// checkpoints, and even a scripted attacker replaying real checkpoints
-// still can't beat the physical spawn-timing floor above.
-export function checkPlausibility({ claimedSprint, elapsedSeconds, checkpointCount }) {
+// A deliberately generous upper bound on how much Budget a real client could
+// plausibly have accumulated in `elapsedSeconds` of real (server-observed)
+// time — NOT an exact economy simulation (team composition/upgrades/luck
+// vary too much to bound tightly), just picked well above even a maxed-out
+// theoretical income rate. PM income scales with tower level (see
+// js/entities.js Tower.update: `amount = income * mult.dmg`,
+// `interval = def.interval * mult.rate`), and nothing caps how many of the
+// 12 desks can be PMs — at MAX_TOWER_LEVEL (mult.dmg=2.9, mult.rate=0.68)
+// and 4x speed, a single maxed PM alone is `1200*2.9 * (4*1000)/(4000*0.68)`
+// ≈ $5,118/real-second, so 12 maxed PMs (theoretically, ignoring that
+// filling every desk with PMs would leave nothing to fight incoming
+// enemies) tops out around $61,400/real-second. This is set to roughly
+// double that, so it stays well clear of even that unrealistic all-PM
+// theoretical max — plus headroom for funding-stage injections/bounties on
+// top — while still closing the actual gap this exists for: a forged
+// request pairing a tiny claimed sprint (and thus a tiny required elapsed
+// time) with an arbitrarily large claimed budget. elapsedSeconds here is
+// derived server-side from runs.created_at, so the client can't shrink it
+// to buy a bigger budget ceiling — claiming a huge budget still requires
+// claiming (and the server independently measuring) real elapsed time to
+// match.
+export const BUDGET_CEILING_PER_SECOND = 125000;
+
+export function budgetCeiling(elapsedSeconds) {
+  return START_BUDGET + BUDGET_CEILING_PER_SECOND * Math.max(0, elapsedSeconds);
+}
+
+// Combines the elapsed-time floor, a checkpoint-trail requirement, and a
+// budget ceiling — together, the concrete answer to "make it hard to just
+// inspect the page and POST a forged score": a single forged request has no
+// prior checkpoints, even a scripted attacker replaying real checkpoints
+// still can't beat the physical spawn-timing floor above, and claiming an
+// implausibly large budget for how little time has actually elapsed gets
+// caught even if the sprint/checkpoint claims are individually consistent.
+export function checkPlausibility({ claimedSprint, elapsedSeconds, checkpointCount, budget }) {
   const reasons = [];
   if (elapsedSeconds < sprintFloorSeconds(claimedSprint) * FLOOR_SLACK) reasons.push('time_floor_violated');
   if (checkpointCount === 0 && claimedSprint > 3) reasons.push('no_checkpoints');
+  if (typeof budget === 'number' && Number.isFinite(budget) && budget > budgetCeiling(elapsedSeconds)) {
+    reasons.push('budget_ceiling_violated');
+  }
   return { suspicious: reasons.length > 0, reasons };
 }
