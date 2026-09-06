@@ -118,6 +118,7 @@
         <button id="menuPlayBtn" class="primary-btn">Play</button>
         <button id="menuInstructionsBtn" class="menu-btn">Instructions</button>
         <button id="menuLeaderboardBtn" class="menu-btn">Leaderboard</button>
+        <button id="menuFeedbackBtn" class="menu-btn">Feedback</button>
         <button id="menuStartOverBtn" class="menu-btn menu-btn-danger hidden">Start Over</button>
       </div>
     </div>
@@ -207,6 +208,18 @@
       <ol id="menuLeaderboardList" class="leaderboard-list"></ol>
       <p id="menuLeaderboardEmpty" class="menu-empty hidden">No runs yet — be the first!</p>
     </div>
+
+    <div id="menuFeedbackPanel" class="menu-panel menu-card menu-subpanel hidden">
+      <button class="menu-back-btn" id="feedbackBackBtn">&larr; Back</button>
+      <h2 class="menu-subpanel-title">Send Feedback</h2>
+      <p class="menu-feedback-hint">Bugs, ideas, anything — goes straight to the developer.</p>
+      <textarea id="feedbackInput" class="feedback-textarea" maxlength="500" placeholder="What's on your mind?"></textarea>
+      <div class="feedback-footer">
+        <span id="feedbackCounter" class="feedback-counter">0 / 500</span>
+        <button id="feedbackSubmitBtn" class="dialog-btn dialog-btn-primary">Send</button>
+      </div>
+      <p id="feedbackError" class="dialog-error hidden"></p>
+    </div>
   </div>
 
   <div id="screen-gameover" class="screen hidden">
@@ -259,6 +272,7 @@
 <script src="js/entities.js"></script>
 <script src="js/waves.js"></script>
 <script src="js/leaderboard.js"></script>
+<script src="js/feedback.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>

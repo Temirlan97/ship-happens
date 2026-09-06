@@ -75,6 +75,77 @@ describe('UI.showMenuPanel', () => {
     Core.togglePause();
     expect(el('menuStartOverBtn').classList.contains('hidden')).toBe(false);
   });
+
+  it('switches to and from the feedback panel like the other subpanels', () => {
+    el('menuFeedbackBtn').click();
+    expect(el('menuFeedbackPanel').classList.contains('hidden')).toBe(false);
+    expect(el('menuMain').classList.contains('hidden')).toBe(true);
+    el('feedbackBackBtn').click();
+    expect(el('menuMain').classList.contains('hidden')).toBe(false);
+    expect(el('menuFeedbackPanel').classList.contains('hidden')).toBe(true);
+  });
+
+  it('resets the feedback textarea, counter, and any error every time the panel reopens', () => {
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = 'leftover draft';
+    el('feedbackInput').dispatchEvent(new Event('input'));
+    el('feedbackError').textContent = 'some old error';
+    el('feedbackError').classList.remove('hidden');
+    el('feedbackBackBtn').click();
+
+    el('menuFeedbackBtn').click();
+    expect(el('feedbackInput').value).toBe('');
+    expect(el('feedbackCounter').textContent).toBe('0 / 500');
+    expect(el('feedbackError').classList.contains('hidden')).toBe(true);
+  });
+});
+
+describe('UI feedback submission', () => {
+  it('updates the character counter live as the player types', () => {
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = 'hello';
+    el('feedbackInput').dispatchEvent(new Event('input'));
+    expect(el('feedbackCounter').textContent).toBe('5 / 500');
+  });
+
+  it('shows an inline error instead of submitting when the message is empty', () => {
+    const spy = vi.spyOn(Game.Feedback, 'submitFeedback');
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = '   ';
+    el('feedbackSubmitBtn').click();
+    expect(spy).not.toHaveBeenCalled();
+    expect(el('feedbackError').classList.contains('hidden')).toBe(false);
+  });
+
+  it('on success, clears the input, hides the panel back to main, and toasts', async () => {
+    vi.spyOn(Game.Feedback, 'submitFeedback').mockResolvedValue({ ok: true });
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = 'Great game!';
+    el('feedbackSubmitBtn').click();
+    await vi.waitFor(() => expect(el('menuMain').classList.contains('hidden')).toBe(false));
+    expect(el('menuFeedbackPanel').classList.contains('hidden')).toBe(true);
+    expect(el('toast').classList.contains('hidden')).toBe(false);
+    expect(el('toast').textContent).toMatch(/thanks/i);
+  });
+
+  it('on a rate-limited response, shows that specific message and stays on the panel', async () => {
+    vi.spyOn(Game.Feedback, 'submitFeedback').mockResolvedValue({ ok: false, reason: 'rate_limited' });
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = 'Great game!';
+    el('feedbackSubmitBtn').click();
+    await vi.waitFor(() => expect(el('feedbackError').classList.contains('hidden')).toBe(false));
+    expect(el('feedbackError').textContent).toMatch(/already/i);
+    expect(el('menuFeedbackPanel').classList.contains('hidden')).toBe(false);
+  });
+
+  it('on a too_long response, shows that specific message', async () => {
+    vi.spyOn(Game.Feedback, 'submitFeedback').mockResolvedValue({ ok: false, reason: 'too_long' });
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = 'Great game!';
+    el('feedbackSubmitBtn').click();
+    await vi.waitFor(() => expect(el('feedbackError').classList.contains('hidden')).toBe(false));
+    expect(el('feedbackError').textContent).toMatch(/500 characters/);
+  });
 });
 
 describe('UI.renderTimeline / updateTimeline', () => {

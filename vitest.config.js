@@ -29,7 +29,8 @@ export default defineConfig({
         'functions/_shared/plausibility.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'functions/_shared/nameFilter.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'functions/_shared/adminAuth.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
-        'functions/_shared/rateLimit.js': { statements: 100, branches: 100, functions: 100, lines: 100 }
+        'functions/_shared/rateLimit.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'functions/_shared/feedbackFilter.js': { statements: 100, branches: 100, functions: 100, lines: 100 }
       }
     }
   }

@@ -53,4 +53,23 @@ describe('isRateLimited', () => {
     expect(sinceArg).toBeGreaterThanOrEqual(before - 60000);
     expect(sinceArg).toBeLessThan(before - 60000 + 1000); // sane, not off by some huge amount
   });
+
+  it('defaults to querying the runs table when no table option is given', async () => {
+    const { db, prepare } = fakeDb(0);
+    await isRateLimited(db, 'abc', { windowMs: 60000, maxRequests: 20 });
+    expect(prepare.mock.calls[0][0]).toContain('FROM runs');
+  });
+
+  it('queries the feedback table when asked', async () => {
+    const { db, prepare } = fakeDb(0);
+    await isRateLimited(db, 'abc', { windowMs: 60000, maxRequests: 5, table: 'feedback' });
+    expect(prepare.mock.calls[0][0]).toContain('FROM feedback');
+  });
+
+  it('rejects an unrecognized table rather than interpolating arbitrary SQL', async () => {
+    const { db } = fakeDb(0);
+    await expect(
+      isRateLimited(db, 'abc', { windowMs: 60000, maxRequests: 5, table: 'users; DROP TABLE runs' })
+    ).rejects.toThrow(/unknown table/);
+  });
 });

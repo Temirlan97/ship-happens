@@ -4,6 +4,7 @@
 (function () {
   let password = null;
   let page = 0;
+  let feedbackPage = 0;
   const PAGE_SIZE = 50;
 
   const el = (id) => document.getElementById(id);
@@ -32,7 +33,7 @@
   }
 
   async function refreshAll() {
-    await Promise.all([loadStats(), loadRuns()]);
+    await Promise.all([loadStats(), loadRuns(), loadFeedback()]);
   }
 
   async function loadStats() {
@@ -155,6 +156,51 @@
     await loadRuns();
   }
 
+  async function loadFeedback() {
+    const params = new URLSearchParams({ limit: PAGE_SIZE, offset: feedbackPage * PAGE_SIZE });
+    const res = await authedFetch('/api/admin/feedback?' + params.toString());
+    if (!res.ok) return;
+    const { feedback } = await res.json();
+    renderFeedback(feedback || []);
+    el('feedbackPageLabel').textContent = String(feedbackPage + 1);
+  }
+
+  function renderFeedback(items) {
+    const tbody = el('feedbackBody');
+    tbody.innerHTML = '';
+    items.forEach((item) => {
+      const tr = document.createElement('tr');
+
+      const idTd = document.createElement('td');
+      idTd.textContent = String(item.id);
+      tr.appendChild(idTd);
+
+      const receivedTd = document.createElement('td');
+      receivedTd.textContent = new Date(item.created_at).toLocaleString();
+      tr.appendChild(receivedTd);
+
+      // .textContent (never innerHTML) is the actual XSS guard here — a
+      // message containing e.g. "<script>" renders as inert literal text,
+      // never parsed as markup.
+      const messageTd = document.createElement('td');
+      messageTd.className = 'message-cell';
+      messageTd.textContent = item.message;
+      tr.appendChild(messageTd);
+
+      const actionsTd = document.createElement('td');
+      actionsTd.appendChild(actionBtn('Delete', () => deleteFeedback(item.id), true));
+      tr.appendChild(actionsTd);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function deleteFeedback(id) {
+    if (!window.confirm('Delete this feedback permanently?')) return;
+    await authedFetch(`/api/admin/feedback/${id}`, { method: 'DELETE' });
+    await loadFeedback();
+  }
+
   el('passwordSubmit').addEventListener('click', tryLogin);
   el('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
   el('refreshBtn').addEventListener('click', refreshAll);
@@ -162,4 +208,6 @@
   el('filterApproved').addEventListener('change', () => { page = 0; loadRuns(); });
   el('prevPageBtn').addEventListener('click', () => { if (page > 0) { page--; loadRuns(); } });
   el('nextPageBtn').addEventListener('click', () => { page++; loadRuns(); });
+  el('feedbackPrevPageBtn').addEventListener('click', () => { if (feedbackPage > 0) { feedbackPage--; loadFeedback(); } });
+  el('feedbackNextPageBtn').addEventListener('click', () => { feedbackPage++; loadFeedback(); });
 })();

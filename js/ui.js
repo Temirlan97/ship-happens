@@ -24,8 +24,12 @@
     });
     el('menuInstructionsBtn').addEventListener('click', () => showMenuPanel('instructions'));
     el('menuLeaderboardBtn').addEventListener('click', () => showMenuPanel('leaderboard'));
+    el('menuFeedbackBtn').addEventListener('click', () => showMenuPanel('feedback'));
     el('instructionsBackBtn').addEventListener('click', () => showMenuPanel('main'));
     el('leaderboardBackBtn').addEventListener('click', () => showMenuPanel('main'));
+    el('feedbackBackBtn').addEventListener('click', () => showMenuPanel('main'));
+    el('feedbackInput').addEventListener('input', () => updateFeedbackCounter());
+    el('feedbackSubmitBtn').addEventListener('click', () => submitFeedback());
     el('menuStartOverBtn').addEventListener('click', () => {
       core.openConfirmDialog('Your current run will be lost — budget, hires, and progress all reset.', () => core.restart());
     });
@@ -317,14 +321,55 @@
     if (name === 'menu') showMenuPanel('main');
   }
 
-  // Which of the menu's three panels is showing — pure presentation state,
+  // Which of the menu's four panels is showing — pure presentation state,
   // not part of Core.state (pausing/starting doesn't care which one the
   // player is looking at).
   function showMenuPanel(name) {
     el('menuMain').classList.toggle('hidden', name !== 'main');
     el('menuInstructionsPanel').classList.toggle('hidden', name !== 'instructions');
     el('menuLeaderboardPanel').classList.toggle('hidden', name !== 'leaderboard');
+    el('menuFeedbackPanel').classList.toggle('hidden', name !== 'feedback');
     if (name === 'leaderboard') showMenuLeaderboard();
+    if (name === 'feedback') resetFeedbackPanel();
+  }
+
+  // Every fresh open should start from a clean slate — a previous
+  // submission's text/error shouldn't linger for the next visit.
+  function resetFeedbackPanel() {
+    el('feedbackInput').value = '';
+    el('feedbackError').classList.add('hidden');
+    updateFeedbackCounter();
+  }
+
+  function updateFeedbackCounter() {
+    const len = el('feedbackInput').value.length;
+    el('feedbackCounter').textContent = `${len} / 500`;
+  }
+
+  function feedbackErrorMessage(reason) {
+    switch (reason) {
+      case 'too_long': return 'Keep it under 500 characters.';
+      case 'rate_limited': return "You've sent a few already — try again in a bit.";
+      case 'empty': return 'Write something first.';
+      default: return "Couldn't send that — try again.";
+    }
+  }
+
+  function submitFeedback() {
+    const message = el('feedbackInput').value.trim();
+    const errorEl = el('feedbackError');
+    if (!message) { errorEl.textContent = feedbackErrorMessage('empty'); errorEl.classList.remove('hidden'); return; }
+    window.Game.Feedback.submitFeedback(message).then((res) => {
+      if (res && res.ok) {
+        el('feedbackInput').value = '';
+        updateFeedbackCounter();
+        showMenuPanel('main');
+        showToast('Thanks for the feedback!');
+      } else {
+        errorEl.textContent = feedbackErrorMessage(res && res.reason);
+        errorEl.classList.remove('hidden');
+      }
+    });
   }
 
   // Fetched fresh every time the panel opens (not just after a run ends,

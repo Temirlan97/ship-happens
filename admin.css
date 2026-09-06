@@ -102,3 +102,5 @@ td button.danger { border-color: rgba(255,93,93,0.4); color: #ff9d9d; }
 
 .pager { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
 .pager span { font-size: 13px; opacity: 0.7; }
+
+.message-cell { white-space: pre-wrap; max-width: 420px; word-break: break-word; }
