@@ -1,0 +1,104 @@
+/* Standalone admin tool — deliberately plain/functional, not styled to
+   match the game's isometric visual polish (this is an internal tool, not
+   player-facing). Reuses the game's dark-theme color values for basic
+   consistency without pulling in css/style.css's game-specific rules. */
+:root {
+  --panel: #101826;
+  --panel-light: #1a2436;
+  --border: #2c3b52;
+  --text: #dbe6f3;
+  --dim: #93a5bd;
+  --accent-green: #39ff88;
+  --danger: #ff5d5d;
+  --budget: #f2c94c;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #0a0f1a;
+  color: var(--text);
+}
+.hidden { display: none !important; }
+
+#passwordGate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gate-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  width: min(320px, 90vw);
+  text-align: center;
+}
+.gate-card h1 { font-size: 16px; margin: 0 0 16px; }
+.gate-card input {
+  width: 100%;
+  padding: 9px 10px;
+  background: #0c1420;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.gate-card button, header button, .pager button {
+  background: linear-gradient(180deg, #7fb4ff, #3d7de0);
+  border: none;
+  color: #08111d;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.error { color: var(--danger); font-size: 12px; margin-top: 8px; }
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+header h1 { font-size: 16px; margin: 0; }
+
+section { padding: 20px 24px; }
+section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; margin: 0 0 12px; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.stat-box .value { font-size: 20px; font-weight: 800; color: var(--accent-green); }
+.stat-box .label { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+
+.filters { display: flex; gap: 16px; margin-bottom: 12px; font-size: 13px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+th { opacity: 0.6; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+tr.suspicious { background: rgba(255,93,93,0.08); }
+tr.hidden-row { opacity: 0.4; }
+
+td button {
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-right: 4px;
+}
+td button.danger { border-color: rgba(255,93,93,0.4); color: #ff9d9d; }
+
+.pager { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.pager span { font-size: 13px; opacity: 0.7; }

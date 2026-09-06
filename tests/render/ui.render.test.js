@@ -330,3 +330,96 @@ describe('UI.showScreen', () => {
     expect(el('screen-gameover').classList.contains('hidden')).toBe(true);
   });
 });
+
+describe('UI.showNameDialog / hideNameDialog', () => {
+  it('shows the dialog with a rank-specific title, clears any previous input/error', () => {
+    el('nameDialogInput').value = 'stale';
+    el('nameDialogError').classList.remove('hidden');
+    UI.showNameDialog(3);
+    expect(el('nameDialog').classList.contains('hidden')).toBe(false);
+    expect(el('nameDialogTitle').textContent).toContain('#3');
+    expect(el('nameDialogInput').value).toBe('');
+    expect(el('nameDialogError').classList.contains('hidden')).toBe(true);
+  });
+
+  it('falls back to a generic title when no rank is given', () => {
+    UI.showNameDialog(null);
+    expect(el('nameDialogTitle').textContent).toBe('You made the Top 10!');
+  });
+
+  it('hideNameDialog hides it', () => {
+    UI.showNameDialog(1);
+    UI.hideNameDialog();
+    expect(el('nameDialog').classList.contains('hidden')).toBe(true);
+  });
+});
+
+describe('the name dialog submit flow (via the real button click)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('shows an inline error and does not call the server for an empty name', () => {
+    UI.showNameDialog(1);
+    el('nameDialogInput').value = '   ';
+    el('nameDialogSubmitBtn').click();
+    expect(el('nameDialogError').classList.contains('hidden')).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('on success, hides the dialog and refreshes the leaderboard list', async () => {
+    fetch
+      .mockReturnValueOnce(Promise.resolve({ json: () => Promise.resolve({ secret: 's1' }) })) // runStart
+      .mockReturnValueOnce(Promise.resolve({ json: () => Promise.resolve({ ok: true, name: 'Alice' }) })) // submitName
+      .mockReturnValueOnce(Promise.resolve({ json: () => Promise.resolve({ entries: [{ name: 'Alice', sprint: 5 }] }) })); // fetchLeaderboard
+    await Game.Leaderboard.runStart(); // establishes a real leaderboard session directly (Core.start() doesn't await it)
+    UI.showNameDialog(2);
+    el('nameDialogInput').value = 'Alice';
+    el('nameDialogSubmitBtn').click();
+    await vi.waitFor(() => expect(el('nameDialog').classList.contains('hidden')).toBe(true));
+    await vi.waitFor(() => expect(el('leaderboardList').children.length).toBe(1));
+  });
+
+  it('on rejection, shows a specific inline error and leaves the dialog open', async () => {
+    fetch
+      .mockReturnValueOnce(Promise.resolve({ json: () => Promise.resolve({ secret: 's1' }) })) // runStart
+      .mockReturnValueOnce(Promise.resolve({ json: () => Promise.resolve({ ok: false, reason: 'profanity' }) })); // submitName
+    await Game.Leaderboard.runStart();
+    UI.showNameDialog(2);
+    el('nameDialogInput').value = 'BadWord';
+    el('nameDialogSubmitBtn').click();
+    await vi.waitFor(() => expect(el('nameDialogError').classList.contains('hidden')).toBe(false));
+    expect(el('nameDialog').classList.contains('hidden')).toBe(false);
+  });
+
+  it('pressing Enter in the input submits the same as clicking the button', () => {
+    UI.showNameDialog(1);
+    el('nameDialogInput').value = '';
+    el('nameDialogInput').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(el('nameDialogError').classList.contains('hidden')).toBe(false); // empty-name path, no fetch needed
+  });
+});
+
+describe('UI.renderLeaderboard', () => {
+  it('hides the section when there are no entries', () => {
+    UI.renderLeaderboard([]);
+    expect(el('leaderboardSection').classList.contains('hidden')).toBe(true);
+  });
+
+  it('hides the section when entries is null/undefined', () => {
+    UI.renderLeaderboard(null);
+    expect(el('leaderboardSection').classList.contains('hidden')).toBe(true);
+  });
+
+  it('renders one row per entry, ranked by list position, name set via textContent (not interpolated HTML)', () => {
+    UI.renderLeaderboard([{ name: '<b>Alice</b>', sprint: 12 }, { name: 'Bob', sprint: 9 }]);
+    const section = el('leaderboardSection');
+    expect(section.classList.contains('hidden')).toBe(false);
+    const rows = el('leaderboardList').querySelectorAll('.leaderboard-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].querySelector('.leaderboard-rank').textContent).toBe('1');
+    expect(rows[0].querySelector('.leaderboard-name').textContent).toBe('<b>Alice</b>');
+    expect(rows[0].querySelector('.leaderboard-name').querySelector('b')).toBeNull(); // proves textContent, not innerHTML
+    expect(rows[1].querySelector('.leaderboard-sprint').textContent).toBe('Sprint 9');
+  });
+});

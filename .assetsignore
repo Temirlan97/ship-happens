@@ -9,6 +9,9 @@ art-sources
 package.json
 package-lock.json
 vitest.config.js
+wrangler.toml
+migrations
+.dev.vars
 README.md
 LICENSE
 CLAUDE.md

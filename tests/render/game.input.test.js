@@ -451,3 +451,69 @@ describe('misc small Core methods not otherwise exercised', () => {
     expect(Core.bestSprint).toBe(5);
   });
 });
+
+describe('leaderboard integration', () => {
+  it('start() and restart() each begin a fresh leaderboard session', async () => {
+    const spy = vi.spyOn(Game.Leaderboard, 'runStart').mockResolvedValue();
+    Core.start();
+    expect(spy).toHaveBeenCalledTimes(1);
+    Core.restart();
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('sendLeaderboardCheckpoint reports the current sprint/budget/stats', () => {
+    const spy = vi.spyOn(Game.Leaderboard, 'sendCheckpoint').mockImplementation(() => {});
+    Core.waves.waveIndex = 2; // displayWaveNumber = 3
+    Core.budget = 4321;
+    Core.stats = { income: 1, salaries: 2, lost: 3, kills: 4 };
+    Core.sendLeaderboardCheckpoint();
+    expect(spy).toHaveBeenCalledWith(3, 4321, Core.stats);
+  });
+
+  it('a wave transition sends a checkpoint (requestNextWave path)', () => {
+    const spy = vi.spyOn(Core, 'sendLeaderboardCheckpoint').mockImplementation(() => {});
+    Core.waves.betweenTimer = 1;
+    Core.requestNextWave();
+    expect(spy).toHaveBeenCalledOnce();
+  });
+
+  it('gameOver reports the finished run and shows the name dialog when eligible', async () => {
+    vi.spyOn(Game.Leaderboard, 'finishRun').mockResolvedValue({ qualifiesForName: true, rank: 5 });
+    vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([]);
+    const showSpy = vi.spyOn(Game.UI, 'showNameDialog').mockImplementation(() => {});
+    Core.waves.waveIndex = 4;
+    Core.gameOver();
+    await vi.waitFor(() => expect(showSpy).toHaveBeenCalledWith(5));
+  });
+
+  it('gameOver does not show the name dialog when not eligible', async () => {
+    const finishRunPromise = Promise.resolve({ qualifiesForName: false, rank: null });
+    vi.spyOn(Game.Leaderboard, 'finishRun').mockReturnValue(finishRunPromise);
+    vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([]);
+    const showSpy = vi.spyOn(Game.UI, 'showNameDialog').mockImplementation(() => {});
+    Core.gameOver();
+    await finishRunPromise; // wait for the exact same promise gameOver's own .then() is chained onto
+    expect(showSpy).not.toHaveBeenCalled();
+  });
+
+  it('submitLeaderboardName hides the dialog and refreshes the board on success', async () => {
+    const hideSpy = vi.spyOn(Game.UI, 'hideNameDialog').mockImplementation(() => {});
+    const renderSpy = vi.spyOn(Game.UI, 'renderLeaderboard').mockImplementation(() => {});
+    vi.spyOn(Game.Leaderboard, 'submitName').mockResolvedValue({ ok: true, name: 'Alice' });
+    vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([{ name: 'Alice', sprint: 5 }]);
+
+    const result = await Core.submitLeaderboardName('Alice');
+    expect(result).toEqual({ ok: true, name: 'Alice' });
+    expect(hideSpy).toHaveBeenCalledOnce();
+    expect(renderSpy).toHaveBeenCalledWith([{ name: 'Alice', sprint: 5 }]);
+  });
+
+  it('submitLeaderboardName leaves the dialog open on rejection', async () => {
+    const hideSpy = vi.spyOn(Game.UI, 'hideNameDialog').mockImplementation(() => {});
+    vi.spyOn(Game.Leaderboard, 'submitName').mockResolvedValue({ ok: false, reason: 'profanity' });
+
+    const result = await Core.submitLeaderboardName('BadWord');
+    expect(result).toEqual({ ok: false, reason: 'profanity' });
+    expect(hideSpy).not.toHaveBeenCalled();
+  });
+});

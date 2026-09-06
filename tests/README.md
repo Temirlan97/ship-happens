@@ -48,3 +48,31 @@ happen to make noise) and a working no-op `<canvas>` 2D context.
 it): it replaces `window.Image` with a stub that "loads" synchronously, so
 tests can exercise the real-sprite-art code paths in `entities.js`/`path.js`
 and not just their art-not-ready-yet procedural fallbacks.
+
+## The leaderboard backend (`functions/`)
+
+`functions/_shared/plausibility.js` and `functions/_shared/nameFilter.js`
+are plain ES modules (unlike `js/*.js`, Pages Functions were never part of
+the "no ES modules" constraint — that's specifically about the
+`<script>`-loaded client files), so they're imported and unit-tested
+directly with real vitest: `tests/logic/leaderboard-plausibility.test.js`
+(including a drift-guard test that loads the real `js/config.js` and
+asserts its constants match the hand-duplicated copies in
+`plausibility.js` — a Pages Function can't `import` a `window`-global IIFE
+file, so this is what keeps the anti-cheat floor from silently drifting
+out of sync with the real game's balance) and
+`tests/logic/name-filter.test.js`. `tests/logic/admin-auth.test.js` covers
+the admin password check the same way.
+
+`functions/api/**` (the actual `onRequestGet`/`onRequestPost` handlers) and
+`functions/_shared/http.js` (thin wrappers around `Response`/`fetch`/
+`crypto.subtle`) are deliberately **not** unit-tested — every SQL statement
+in them is a trivial single-table parameterized query with no joins, and
+investing in Miniflare/full HTTP integration tests for a handful of simple
+endpoints would be exactly the disproportionate-cost-for-value tradeoff
+this file already argues against for canvas rendering above. These are
+verified the same way: `wrangler pages dev` (which emulates D1 locally)
+plus real `curl`/browser play-throughs before shipping a change — see
+`js/leaderboard.js`'s own tests (`tests/render/leaderboard.test.js`) for
+where the client-side half of this is covered instead (mocked `fetch`/
+`sendBeacon`, verifying it degrades silently on any network failure).

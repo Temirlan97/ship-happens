@@ -445,6 +445,50 @@ html, body {
 .dialog-btn-secondary:hover { background: #24304a; }
 .dialog-btn-danger { background: linear-gradient(180deg, #ff8a8a, #e04b4b); color: #2a0a0a; box-shadow: 0 4px 0 #942f2f; }
 .dialog-btn-danger:active { transform: translateY(2px); box-shadow: 0 2px 0 #942f2f; }
+.dialog-btn-primary { background: linear-gradient(180deg, #7fb4ff, #3d7de0); color: #08111d; box-shadow: 0 4px 0 #244a86; }
+.dialog-btn-primary:active { transform: translateY(2px); box-shadow: 0 2px 0 #244a86; }
+
+.dialog-input {
+  width: 100%;
+  background: #0c1420;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+.dialog-input:focus { outline: none; border-color: #7fb4ff; }
+.dialog-error { font-size: 11px; color: var(--danger); margin: -8px 0 14px; }
+.dialog-error.hidden { display: none; }
+
+/* ---- top-10 list shown on the game-over stats card ---- */
+.leaderboard-section { width: 100%; margin-top: 16px; }
+.leaderboard-section.hidden { display: none; }
+.leaderboard-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.leaderboard-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  font-size: 12px;
+}
+.leaderboard-row.mine { background: rgba(57,255,136,0.12); border: 1px solid rgba(57,255,136,0.3); }
+.leaderboard-rank { width: 18px; font-weight: 800; opacity: 0.6; text-align: center; }
+.leaderboard-name { flex: 1; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leaderboard-sprint { color: var(--accent-green); font-variant-numeric: tabular-nums; }
 
 /* ---- desk hire popup: appears next to whichever empty desk was clicked ---- */
 .hire-panel {

@@ -535,7 +535,7 @@
     requestNextWave() {
       const w = this.waves;
       if (w.active || w.betweenTimer <= 0) return;
-      w.startNextWave(() => this.processPayday());
+      w.startNextWave(() => { this.processPayday(); this.sendLeaderboardCheckpoint(); });
     },
 
     start() {
@@ -543,6 +543,11 @@
       window.Game.Audio.init();
       window.Game.UI.showScreen(null);
       window.Game.UI.updateHUD();
+      window.Game.Leaderboard.runStart();
+    },
+
+    sendLeaderboardCheckpoint() {
+      window.Game.Leaderboard.sendCheckpoint(this.waves.displayWaveNumber, this.budget, this.stats);
     },
 
     togglePause() {
@@ -595,6 +600,7 @@
       window.Game.UI.showHirePanel(null);
       window.Game.UI.showScreen(null);
       window.Game.UI.updateHUD();
+      window.Game.Leaderboard.runStart();
     },
 
     gameOver() {
@@ -604,6 +610,25 @@
       window.Game.Audio.gameOver();
       window.Game.UI.showScreen('gameover');
       window.Game.UI.updateHUD();
+
+      // Both fire-and-forget from gameOver's own point of view — the game-
+      // over screen doesn't wait on either; the name dialog (if eligible)
+      // and the leaderboard list just pop in a moment later once the
+      // network round trip resolves.
+      window.Game.Leaderboard.finishRun(this.lastReachedSprint, this.budget, this.stats).then((res) => {
+        if (res && res.qualifiesForName) window.Game.UI.showNameDialog(res.rank);
+      });
+      window.Game.Leaderboard.fetchLeaderboard().then((entries) => window.Game.UI.renderLeaderboard(entries));
+    },
+
+    submitLeaderboardName(name) {
+      return window.Game.Leaderboard.submitName(name).then((res) => {
+        if (res && res.ok) {
+          window.Game.UI.hideNameDialog();
+          window.Game.Leaderboard.fetchLeaderboard().then((entries) => window.Game.UI.renderLeaderboard(entries));
+        }
+        return res;
+      });
     },
 
     // Order: (1) wave scheduling fires payroll via a synchronous callback
@@ -619,7 +644,7 @@
         if (this.cardCooldowns[k] > 0) this.cardCooldowns[k] = Math.max(0, this.cardCooldowns[k] - dt * 1000);
       });
 
-      this.waves.update(dt, (t, tier) => this.spawnEnemy(t, tier), this.enemies.filter(e => !e.dead && !e.reachedEnd).length, () => this.processPayday());
+      this.waves.update(dt, (t, tier) => this.spawnEnemy(t, tier), this.enemies.filter(e => !e.dead && !e.reachedEnd).length, () => { this.processPayday(); this.sendLeaderboardCheckpoint(); });
 
       if (this.waves.justEnteredStage >= 0) {
         const stage = CFG.FUNDING_STAGES[this.waves.justEnteredStage];

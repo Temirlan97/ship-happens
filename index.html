@@ -79,6 +79,19 @@
     </div>
   </div>
 
+  <div id="nameDialog" class="dialog-overlay hidden">
+    <div class="dialog-card">
+      <div class="dialog-title" id="nameDialogTitle">You made the Top 10!</div>
+      <p class="dialog-message">Enter a name to add your run to the leaderboard.</p>
+      <input id="nameDialogInput" class="dialog-input" type="text" maxlength="20" placeholder="Your name" autocomplete="off" />
+      <p class="dialog-error hidden" id="nameDialogError"></p>
+      <div class="dialog-actions">
+        <button id="nameDialogSkipBtn" class="dialog-btn dialog-btn-secondary">Skip</button>
+        <button id="nameDialogSubmitBtn" class="dialog-btn dialog-btn-primary">Submit</button>
+      </div>
+    </div>
+  </div>
+
   <div id="upgradePanel" class="upgrade-panel hidden">
     <div id="upPreview" class="up-preview"></div>
     <div id="upNextName" class="up-next-name"></div>
@@ -125,6 +138,10 @@
           <div class="stat-label">Bugs Squashed</div>
         </div>
       </div>
+      <div id="leaderboardSection" class="leaderboard-section hidden">
+        <div class="leaderboard-title">Top 10</div>
+        <ol id="leaderboardList" class="leaderboard-list"></ol>
+      </div>
       <div class="stats-card-footer">Startup Tower Defense</div>
     </div>
     <button id="restartBtn" class="primary-btn">Try Again</button>
@@ -139,6 +156,7 @@
 <script src="js/camera.js"></script>
 <script src="js/entities.js"></script>
 <script src="js/waves.js"></script>
+<script src="js/leaderboard.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>

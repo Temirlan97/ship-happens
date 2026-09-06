@@ -1,0 +1,9 @@
+name = "ship-happens"
+pages_build_output_dir = "."
+compatibility_date = "2026-09-06"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ship-happens-leaderboard"
+database_id = "5855b67f-1e6c-45e1-9030-99bef56350df"
+migrations_dir = "migrations"

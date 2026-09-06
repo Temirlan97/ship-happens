@@ -26,6 +26,10 @@
     el('confirmCancelBtn').addEventListener('click', () => core.closeConfirmDialog(false));
     el('confirmOkBtn').addEventListener('click', () => core.closeConfirmDialog(true));
     el('confirmDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
+    el('nameDialogSkipBtn').addEventListener('click', () => hideNameDialog());
+    el('nameDialogSubmitBtn').addEventListener('click', () => submitNameDialog());
+    el('nameDialogInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitNameDialog(); });
+    el('nameDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
     renderTimeline();
     showScreen('start');
     updateHUD();
@@ -304,10 +308,63 @@
     el('confirmDialog').classList.add('hidden');
   }
 
+  function showNameDialog(rank) {
+    el('nameDialogTitle').textContent = rank ? `You're #${rank} on the leaderboard!` : 'You made the Top 10!';
+    el('nameDialogInput').value = '';
+    el('nameDialogError').classList.add('hidden');
+    el('nameDialog').classList.remove('hidden');
+    el('nameDialogInput').focus();
+  }
+  function hideNameDialog() {
+    el('nameDialog').classList.add('hidden');
+  }
+  function submitNameDialog() {
+    const name = el('nameDialogInput').value.trim();
+    const errorEl = el('nameDialogError');
+    if (!name) { errorEl.textContent = 'Enter a name first.'; errorEl.classList.remove('hidden'); return; }
+    core.submitLeaderboardName(name).then((res) => {
+      if (!res || !res.ok) {
+        errorEl.textContent = nameErrorMessage(res && res.reason);
+        errorEl.classList.remove('hidden');
+      }
+    });
+  }
+  function nameErrorMessage(reason) {
+    switch (reason) {
+      case 'profanity': return "That name isn't allowed — try something else.";
+      case 'url_or_handle': return "Names can't include links or handles.";
+      case 'too_long': return 'Keep it under 20 characters.';
+      default: return "Couldn't submit that name — try again.";
+    }
+  }
+
+  // Renders the top-10 board on the game-over stats card. `myRank`/`mine`
+  // aren't part of the API response — the row is matched by name only
+  // (best-effort highlight, not a security-sensitive distinction).
+  function renderLeaderboard(entries) {
+    const section = el('leaderboardSection');
+    const list = el('leaderboardList');
+    if (!entries || entries.length === 0) { section.classList.add('hidden'); return; }
+    list.innerHTML = '';
+    entries.forEach((entry, i) => {
+      const li = document.createElement('li');
+      li.className = 'leaderboard-row';
+      li.innerHTML = `
+        <span class="leaderboard-rank">${i + 1}</span>
+        <span class="leaderboard-name"></span>
+        <span class="leaderboard-sprint">Sprint ${entry.sprint}</span>
+      `;
+      li.querySelector('.leaderboard-name').textContent = entry.name;
+      list.appendChild(li);
+    });
+    section.classList.remove('hidden');
+  }
+
   window.Game.UI = {
     init, updateHUD, showScreen,
     updateUpgradePanel, positionUpgradePanel, showToast,
     renderTimeline, updateTimeline, showHirePanel, refreshHirePanel,
-    showConfirmDialog, hideConfirmDialog
+    showConfirmDialog, hideConfirmDialog,
+    showNameDialog, hideNameDialog, renderLeaderboard
   };
 })();

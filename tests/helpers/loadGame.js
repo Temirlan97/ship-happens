@@ -16,7 +16,7 @@ const JS_DIR = path.resolve(__dirname, '../../js');
 // test wants running in the background.
 const SCRIPT_ORDER = [
   'config.js', 'assets.js', 'audio.js', 'path.js', 'camera.js',
-  'entities.js', 'waves.js', 'game.js', 'ui.js'
+  'entities.js', 'waves.js', 'leaderboard.js', 'game.js', 'ui.js'
 ];
 
 /**
