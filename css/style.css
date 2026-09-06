@@ -157,6 +157,8 @@ html, body {
   white-space: nowrap;
 }
 .icon-btn:hover { background: #24304a; }
+.icon-btn-danger { border-color: rgba(255,93,93,0.4); color: #ff9d9d; }
+.icon-btn-danger:hover { background: rgba(255,93,93,0.15); border-color: var(--danger); }
 
 /* ---- top-center: logo + funding-stage timeline, shrunk into a pill ---- */
 #hudTopCenter {
@@ -398,6 +400,51 @@ html, body {
 .pause-overlay:hover .pause-text-default { display: none; }
 .pause-overlay:hover .pause-text-hover { display: block; }
 .pause-overlay:hover .pause-text { color: var(--accent-green); border-color: var(--accent-green); }
+
+/* ---- generic confirmation dialog: full-viewport dim + a centered card,
+   same visual family as .stats-card. Any dialog shown this way should also
+   pause the game — see Core.openConfirmDialog/closeConfirmDialog — so a
+   player never loses budget/hires to gameplay ticking on behind a prompt
+   they haven't answered yet. z-index above every HUD/panel element
+   (including the pause overlay) but below the loading overlay, which only
+   ever shows before anything else exists to dim. ---- */
+.dialog-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  background: rgba(6, 10, 18, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dialog-overlay.hidden { display: none; }
+.dialog-card {
+  width: min(360px, 86vw);
+  background:
+    radial-gradient(120% 140% at 50% -10%, rgba(255,93,93,0.14), transparent 55%),
+    linear-gradient(165deg, #16213a 0%, #0d1526 70%);
+  border: 1px solid rgba(255,93,93,0.25);
+  border-radius: 22px;
+  padding: 26px 24px 22px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03) inset;
+  text-align: center;
+}
+.dialog-title { font-size: 19px; font-weight: 800; color: var(--text); margin-bottom: 10px; }
+.dialog-message { font-size: 13px; line-height: 1.5; opacity: 0.8; margin: 0 0 22px; }
+.dialog-actions { display: flex; gap: 10px; justify-content: center; }
+.dialog-btn {
+  flex: 1;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+.dialog-btn-secondary { background: var(--panel-light); border: 1px solid var(--border); color: var(--text); }
+.dialog-btn-secondary:hover { background: #24304a; }
+.dialog-btn-danger { background: linear-gradient(180deg, #ff8a8a, #e04b4b); color: #2a0a0a; box-shadow: 0 4px 0 #942f2f; }
+.dialog-btn-danger:active { transform: translateY(2px); box-shadow: 0 2px 0 #942f2f; }
 
 /* ---- desk hire popup: appears next to whichever empty desk was clicked ---- */
 .hire-panel {

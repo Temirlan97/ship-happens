@@ -20,6 +20,12 @@
     el('upgradePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('hirePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('pauseOverlay').addEventListener('click', () => core.togglePause());
+    el('restartRunBtn').addEventListener('click', () => {
+      core.openConfirmDialog('Your current run will be lost — budget, hires, and progress all reset.', () => core.restart());
+    });
+    el('confirmCancelBtn').addEventListener('click', () => core.closeConfirmDialog(false));
+    el('confirmOkBtn').addEventListener('click', () => core.closeConfirmDialog(true));
+    el('confirmDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
     renderTimeline();
     showScreen('start');
     updateHUD();
@@ -290,9 +296,18 @@
     });
   }
 
+  function showConfirmDialog(message) {
+    el('confirmMessage').textContent = message;
+    el('confirmDialog').classList.remove('hidden');
+  }
+  function hideConfirmDialog() {
+    el('confirmDialog').classList.add('hidden');
+  }
+
   window.Game.UI = {
     init, updateHUD, showScreen,
     updateUpgradePanel, positionUpgradePanel, showToast,
-    renderTimeline, updateTimeline, showHirePanel, refreshHirePanel
+    renderTimeline, updateTimeline, showHirePanel, refreshHirePanel,
+    showConfirmDialog, hideConfirmDialog
   };
 })();

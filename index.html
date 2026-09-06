@@ -42,6 +42,7 @@
       <button id="speedBtn" class="icon-btn speed-btn"><span id="speedValue">1x</span></button>
       <button id="pauseBtn" class="icon-btn">Pause</button>
       <button id="muteBtn" class="icon-btn">Sound: On</button>
+      <button id="restartRunBtn" class="icon-btn icon-btn-danger">Start Over</button>
     </div>
   </div>
 
@@ -65,6 +66,17 @@
   <div id="pauseOverlay" class="pause-overlay hidden">
     <span class="pause-text pause-text-default">PAUSED</span>
     <span class="pause-text pause-text-hover">RESUME</span>
+  </div>
+
+  <div id="confirmDialog" class="dialog-overlay hidden">
+    <div class="dialog-card">
+      <div class="dialog-title" id="confirmTitle">Start Over?</div>
+      <p class="dialog-message" id="confirmMessage"></p>
+      <div class="dialog-actions">
+        <button id="confirmCancelBtn" class="dialog-btn dialog-btn-secondary">Cancel</button>
+        <button id="confirmOkBtn" class="dialog-btn dialog-btn-danger">Start Over</button>
+      </div>
+    </div>
   </div>
 
   <div id="upgradePanel" class="upgrade-panel hidden">

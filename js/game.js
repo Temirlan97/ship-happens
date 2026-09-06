@@ -51,6 +51,9 @@
     // zero, cleared the moment it recovers; see the check at the end of update().
     negativeBudgetTimer: 0,
     autoPausedByVisibility: false,
+    // Confirmation-dialog bookkeeping — see openConfirmDialog/closeConfirmDialog.
+    pendingConfirmAction: null,
+    dialogResumeToPlaying: false,
     // Advances only inside update() (which only runs while state==='playing'),
     // so every decorative animation that reads this instead of
     // performance.now() freezes exactly where it was when paused.
@@ -545,6 +548,29 @@
     togglePause() {
       if (this.state === 'playing') this.state = 'paused';
       else if (this.state === 'paused') this.state = 'playing';
+      window.Game.UI.updateHUD();
+    },
+
+    // Any confirmation dialog goes through here so the game is always
+    // paused behind it — nothing should keep ticking (budget, sprint
+    // countdown, enemies) while the player hasn't answered a prompt yet.
+    // Remembers whether it was actually playing (vs. already paused) so
+    // cancel restores exactly what was true before, rather than always
+    // resuming.
+    openConfirmDialog(message, onConfirm) {
+      this.dialogResumeToPlaying = this.state === 'playing';
+      if (this.state === 'playing') this.state = 'paused';
+      this.pendingConfirmAction = onConfirm;
+      window.Game.UI.showConfirmDialog(message);
+      window.Game.UI.updateHUD();
+    },
+    closeConfirmDialog(confirmed) {
+      window.Game.UI.hideConfirmDialog();
+      const action = this.pendingConfirmAction;
+      this.pendingConfirmAction = null;
+      if (confirmed && action) { action(); return; }
+      if (this.dialogResumeToPlaying) this.state = 'playing';
+      this.dialogResumeToPlaying = false;
       window.Game.UI.updateHUD();
     },
 

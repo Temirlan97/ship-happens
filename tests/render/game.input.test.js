@@ -382,6 +382,66 @@ describe('misc small Core methods not otherwise exercised', () => {
     expect(Core.muted).toBe(true);
   });
 
+  describe('openConfirmDialog / closeConfirmDialog', () => {
+    it('pauses the game and shows the dialog when opened while playing', () => {
+      Core.state = 'playing';
+      Core.openConfirmDialog('Sure?', () => {});
+      expect(Core.state).toBe('paused');
+      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(false);
+      expect(document.getElementById('confirmMessage').textContent).toBe('Sure?');
+    });
+
+    it('cancel resumes to playing if it was playing before the dialog opened', () => {
+      Core.state = 'playing';
+      Core.openConfirmDialog('Sure?', () => {});
+      Core.closeConfirmDialog(false);
+      expect(Core.state).toBe('playing');
+      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
+    });
+
+    it('cancel leaves it paused if it was already paused before the dialog opened', () => {
+      Core.state = 'paused';
+      Core.openConfirmDialog('Sure?', () => {});
+      Core.closeConfirmDialog(false);
+      expect(Core.state).toBe('paused');
+    });
+
+    it('confirm runs the action and does not force a resume', () => {
+      Core.state = 'playing';
+      const action = vi.fn();
+      Core.openConfirmDialog('Sure?', action);
+      Core.closeConfirmDialog(true);
+      expect(action).toHaveBeenCalledOnce();
+      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
+    });
+
+    it('the restart button opens the dialog, and confirming it actually restarts the run', () => {
+      const d = CFG.DESK_POSITIONS[0];
+      Core.hireAt(d.col, d.row, 'engineer');
+      Core.state = 'playing';
+      document.getElementById('restartRunBtn').click();
+      expect(Core.state).toBe('paused');
+      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(false);
+
+      document.getElementById('confirmOkBtn').click();
+      expect(Core.towers).toHaveLength(0);
+      expect(Core.budget).toBe(CFG.START_BUDGET);
+      expect(Core.state).toBe('playing');
+      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
+    });
+
+    it('the cancel button closes the dialog without restarting', () => {
+      const d = CFG.DESK_POSITIONS[0];
+      Core.hireAt(d.col, d.row, 'engineer');
+      Core.state = 'playing';
+      document.getElementById('restartRunBtn').click();
+      document.getElementById('confirmCancelBtn').click();
+      expect(Core.towers).toHaveLength(1); // untouched
+      expect(Core.state).toBe('playing');
+      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
+    });
+  });
+
   it('gameOver records the reached sprint and persists a new best', () => {
     Core.waves.waveIndex = 4; // displayWaveNumber = 5
     Core.bestSprint = 2;
