@@ -112,9 +112,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <div id="screen-menu" class="screen">
-    <div id="menuMain" class="menu-panel">
+    <div id="menuMain" class="menu-panel menu-card menu-main-card">
       <h1>Ship Happens</h1>
-      <p>Hire your team, defend Production from bugs and incidents, and don't run out of money.</p>
       <div class="menu-actions">
         <button id="menuPlayBtn" class="primary-btn">Play</button>
         <button id="menuInstructionsBtn" class="menu-btn">Instructions</button>
@@ -123,7 +122,7 @@
       </div>
     </div>
 
-    <div id="menuInstructionsPanel" class="menu-panel menu-subpanel hidden">
+    <div id="menuInstructionsPanel" class="menu-panel menu-card menu-subpanel hidden">
       <button class="menu-back-btn" id="instructionsBackBtn">&larr; Back</button>
       <h2 class="menu-subpanel-title">How to Play</h2>
       <div class="instructions-scroll">
@@ -186,6 +185,13 @@
           </div>
         </div>
         <div class="instruction-card">
+          <div class="instruction-icon instruction-icon-acquirer"></div>
+          <div class="instruction-text">
+            <div class="instruction-title">Acquisition offers</div>
+            <p>Hit big cash milestones (starting at $3M) and a buyer offers to acquire the company for roughly 3x your Budget. Accept to bank the win, or decline and keep building — bigger offers keep coming.</p>
+          </div>
+        </div>
+        <div class="instruction-card">
           <div class="instruction-icon instruction-icon-badge badge-engineer">4x</div>
           <div class="instruction-text">
             <div class="instruction-title">Camera &amp; Speed</div>
@@ -195,7 +201,7 @@
       </div>
     </div>
 
-    <div id="menuLeaderboardPanel" class="menu-panel menu-subpanel hidden">
+    <div id="menuLeaderboardPanel" class="menu-panel menu-card menu-subpanel hidden">
       <button class="menu-back-btn" id="leaderboardBackBtn">&larr; Back</button>
       <h2 class="menu-subpanel-title">Top 10</h2>
       <ol id="menuLeaderboardList" class="leaderboard-list"></ol>

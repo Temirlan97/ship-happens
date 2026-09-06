@@ -239,7 +239,11 @@ html, body {
 .screen {
   position: absolute;
   inset: 0;
-  background: rgba(6, 10, 18, 0.9);
+  /* Near-opaque, not just 0.9 — at 0.9 the busy board (and the lopsided
+     shape of the left-edge timeline strip) ghosted through unevenly,
+     which read as the menu card being off-center even though it's
+     genuinely centered in the viewport (flex align/justify: center). */
+  background: rgba(6, 10, 18, 0.97);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -275,13 +279,35 @@ html, body {
    UI.showMenuPanel — dialog-driven pauses (confirm/acquisition) never
    touch this, so it stays out from behind those modals. ---- */
 .menu-panel.hidden { display: none; }
+
+/* Shared card chrome — same visual family as .dialog-card/.stats-card, so
+   the menu finally looks like it belongs with the rest of the app instead
+   of floating as bare text+buttons on the raw board. Composed onto both
+   the main panel and the instructions/leaderboard subpanels below. */
+.menu-card {
+  background:
+    radial-gradient(120% 140% at 50% -10%, rgba(127,180,255,0.16), transparent 55%),
+    linear-gradient(165deg, #16213a 0%, #0d1526 70%);
+  border: 1px solid rgba(127,180,255,0.28);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03) inset;
+}
+.menu-main-card {
+  width: min(340px, 86vw);
+  padding: 44px 32px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.menu-main-card h1 { margin: 0 0 28px; }
 .menu-actions {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: min(260px, 80vw);
-  margin-top: 6px;
+  width: 100%;
 }
+.menu-actions .primary-btn { padding-top: 13px; padding-bottom: 13px; margin-bottom: 6px; }
 .menu-btn {
   background: var(--panel-light);
   border: 1px solid var(--border);
@@ -291,23 +317,19 @@ html, body {
   padding: 11px 14px;
   border-radius: 10px;
   cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
 }
-.menu-btn:hover { background: #24304a; }
+.menu-btn:hover { background: #24304a; border-color: #3a4c6b; transform: translateY(-1px); }
 .menu-btn.hidden { display: none; }
-.menu-btn-danger { border-color: rgba(255,93,93,0.4); color: #ff9d9d; }
+.menu-btn-danger { border-color: rgba(255,93,93,0.4); color: #ff9d9d; margin-top: 8px; }
 .menu-btn-danger:hover { background: rgba(255,93,93,0.15); border-color: var(--danger); }
 
-/* Instructions/Leaderboard panels: same visual family as .stats-card, but
-   tall content (7 instruction cards) needs to scroll internally instead of
-   overflowing the viewport on a phone. */
+/* Instructions/Leaderboard panels: tall content (7 instruction cards)
+   needs to scroll internally instead of overflowing the viewport on a
+   phone, so they get their own layout on top of the shared .menu-card. */
 .menu-subpanel {
   width: min(480px, 90vw);
   max-height: 82vh;
-  background:
-    radial-gradient(120% 140% at 50% -10%, rgba(127,180,255,0.16), transparent 55%),
-    linear-gradient(165deg, #16213a 0%, #0d1526 70%);
-  border: 1px solid rgba(127,180,255,0.28);
-  border-radius: 22px;
   padding: 20px 20px 16px;
   display: flex;
   flex-direction: column;
@@ -369,6 +391,7 @@ html, body {
 .instruction-icon-sre { background-image: url('../assets/characters/sre.png'); }
 .instruction-icon-qa { background-image: url('../assets/characters/qa.png'); }
 .instruction-icon-pm { background-image: url('../assets/characters/pm.png'); }
+.instruction-icon-acquirer { background-image: url('../assets/characters/acquirer.png'); }
 .instruction-title { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
 .instruction-text p { margin: 0; font-size: 12px; line-height: 1.45; opacity: 0.85; }
 .instruction-roles {
