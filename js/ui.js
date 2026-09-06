@@ -355,9 +355,14 @@
     entries.forEach((entry, i) => {
       const li = document.createElement('li');
       li.className = 'leaderboard-row';
+      // Only the (rarer, more notable) acquired outcome gets a badge — a
+      // bankrupt ending is the default/expected one and doesn't need its
+      // own label on every single row, so most rows stay exactly as before.
+      const acquiredBadge = entry.reason === 'acquired' ? '<span class="leaderboard-badge">Acquired</span>' : '';
       li.innerHTML = `
         <span class="leaderboard-rank">${i + 1}</span>
         <span class="leaderboard-name"></span>
+        ${acquiredBadge}
         <span class="leaderboard-sprint">Sprint ${entry.sprint}</span>
       `;
       li.querySelector('.leaderboard-name').textContent = entry.name;
@@ -369,7 +374,8 @@
   function showAcquisitionDialog() {
     el('acquisitionMessage').textContent =
       `You've grown Ship Happens to ${window.Game.fmt(core.budget)}. A buyer wants to acquire the whole ` +
-      `company for ${window.Game.fmt(core.pendingAcquisitionPrice)} — cash out, or keep building?`;
+      `company for ${window.Game.fmt(core.pendingAcquisitionPrice)}. Selling ends the game right here — ` +
+      `keep playing, or cash out for good?`;
     el('acquisitionDialog').classList.remove('hidden');
   }
   function hideAcquisitionDialog() {

@@ -37,10 +37,10 @@
     } catch (e) { /* never let a checkpoint failure affect gameplay */ }
   }
 
-  async function finishRun(claimedSprint, budget, stats) {
+  async function finishRun(claimedSprint, budget, stats, reason) {
     if (!secret) return { qualifiesForName: false, rank: null };
     try {
-      return await post('/api/runs/finish', { secret, claimedSprint, budget, stats });
+      return await post('/api/runs/finish', { secret, claimedSprint, budget, stats, reason });
     } catch (e) {
       return { qualifiesForName: false, rank: null };
     }

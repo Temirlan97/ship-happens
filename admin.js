@@ -96,6 +96,7 @@
       const cells = [
         run.id,
         run.player_name || '—',
+        run.ending_reason === 'acquired' ? 'Acquired' : (run.finished_at ? 'Bankrupt' : '—'),
         run.claimed_sprint,
         run.claimed_budget,
         formatDuration(run.duration_seconds),

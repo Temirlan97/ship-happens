@@ -422,4 +422,18 @@ describe('UI.renderLeaderboard', () => {
     expect(rows[0].querySelector('.leaderboard-name').querySelector('b')).toBeNull(); // proves textContent, not innerHTML
     expect(rows[1].querySelector('.leaderboard-sprint').textContent).toBe('Sprint 9');
   });
+
+  it('shows an "Acquired" badge only on rows with that ending, not on every row', () => {
+    UI.renderLeaderboard([
+      { name: 'Alice', sprint: 12, reason: 'acquired' },
+      { name: 'Bob', sprint: 9, reason: 'bankrupt' },
+      { name: 'Carol', sprint: 7 } // no reason at all (older/pre-migration rows) — treated as not-acquired
+    ]);
+    const rows = el('leaderboardList').querySelectorAll('.leaderboard-row');
+    expect(rows[0].querySelector('.leaderboard-badge').textContent).toBe('Acquired');
+    expect(rows[1].querySelector('.leaderboard-badge')).toBeNull();
+    expect(rows[2].querySelector('.leaderboard-badge')).toBeNull();
+    // Sprint info stays visible either way — the badge adds to it, doesn't replace it.
+    expect(rows[0].querySelector('.leaderboard-sprint').textContent).toBe('Sprint 12');
+  });
 });

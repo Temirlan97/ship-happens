@@ -525,6 +525,18 @@ html, body {
 .leaderboard-rank { width: 18px; font-weight: 800; opacity: 0.6; text-align: center; }
 .leaderboard-name { flex: 1; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .leaderboard-sprint { color: var(--accent-green); font-variant-numeric: tabular-nums; }
+.leaderboard-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--budget);
+  background: rgba(242,201,76,0.14);
+  border: 1px solid rgba(242,201,76,0.3);
+  border-radius: 20px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
 
 /* ---- desk hire popup: appears next to whichever empty desk was clicked ---- */
 .hire-panel {

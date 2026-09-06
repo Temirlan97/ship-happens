@@ -19,7 +19,7 @@ export async function onRequestGet({ request, env }) {
     `SELECT id, created_at, finished_at, duration_seconds, checkpoint_count,
             claimed_sprint, claimed_budget, claimed_income, claimed_salaries,
             claimed_lost, claimed_kills, suspicious, suspicious_reason,
-            player_name, approved
+            player_name, approved, ending_reason
      FROM runs ${where}
      ORDER BY id DESC
      LIMIT ? OFFSET ?`

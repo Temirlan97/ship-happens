@@ -647,7 +647,7 @@
       // over screen doesn't wait on either; the name dialog (if eligible)
       // and the leaderboard list just pop in a moment later once the
       // network round trip resolves.
-      window.Game.Leaderboard.finishRun(this.lastReachedSprint, this.budget, this.stats).then((res) => {
+      window.Game.Leaderboard.finishRun(this.lastReachedSprint, this.budget, this.stats, reason).then((res) => {
         if (res && res.qualifiesForName) window.Game.UI.showNameDialog(res.rank);
       });
       window.Game.Leaderboard.fetchLeaderboard().then((entries) => window.Game.UI.renderLeaderboard(entries));

@@ -576,7 +576,7 @@ describe('acquisition offers', () => {
     expect(Core.state).toBe('gameover');
     expect(Core.gameOverReason).toBe('acquired');
     expect(document.getElementById('acquisitionDialog').classList.contains('hidden')).toBe(true);
-    expect(Game.Leaderboard.finishRun).toHaveBeenCalledWith(Core.lastReachedSprint, Core.budget, Core.stats);
+    expect(Game.Leaderboard.finishRun).toHaveBeenCalledWith(Core.lastReachedSprint, Core.budget, Core.stats, 'acquired');
     expect(price).toBe(Core.budget * CFG.ACQUISITION_PRICE_MULT);
   });
 

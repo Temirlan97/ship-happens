@@ -92,6 +92,15 @@ describe('Leaderboard.finishRun', () => {
     const result = await Leaderboard.finishRun(8, 2000, {});
     expect(result).toEqual({ qualifiesForName: false, rank: null });
   });
+
+  it('forwards the ending reason to the server', async () => {
+    fetch.mockReturnValueOnce(jsonResponse({ secret: 's1' }));
+    await Leaderboard.runStart();
+    fetch.mockReturnValueOnce(jsonResponse({ qualifiesForName: true, rank: 1 }));
+    await Leaderboard.finishRun(8, 2000, { kills: 10 }, 'acquired');
+    const [, options] = fetch.mock.calls.at(-1);
+    expect(JSON.parse(options.body)).toMatchObject({ reason: 'acquired' });
+  });
 });
 
 describe('Leaderboard.submitName', () => {
