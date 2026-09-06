@@ -8,26 +8,24 @@
 /admin.html
   X-Robots-Tag: noindex
 
-# Code files that change on every deploy — always revalidate with the
-# server instead of trusting Cloudflare's default 4-hour cache, so a
-# deploy can never leave a browser silently stuck on stale JS/CSS/HTML
-# for hours (this is exactly what caused the "site looks broken" report:
-# new HTML + old CSS, cached separately, out of sync). `no-cache` still
-# lets the browser cache the file — it just forces a fast conditional
-# revalidation (near-instant 304 via Cloudflare's ETag) before using it,
-# rather than skipping the network entirely. Art/audio assets are left on
-# the default long-lived caching since staleness there is harmless.
+# The HTML entry points change on every deploy — always revalidate with
+# the server instead of trusting Cloudflare's default 4-hour cache, so a
+# deploy can never leave a browser silently stuck on a stale page for
+# hours. `no-cache` still lets the browser cache the file — it just forces
+# a fast conditional revalidation (near-instant 304 via Cloudflare's ETag)
+# before using it, rather than skipping the network entirely.
+#
+# NOTE: this only works here because Cloudflare Pages serves these two
+# paths dynamically (cf-cache-status: DYNAMIC) — confirmed by testing that
+# Cache-Control set here does NOT apply to static-asset requests
+# (js/*.js, css/*.css: cf-cache-status MISS/HIT), even though every other
+# header on this file does. For those, see the ?v=N query-string
+# versioning on the <script>/<link> tags in index.html/admin.html instead
+# — bump the version there when a js/css file changes, don't add rules
+# for them here, they won't take effect.
 /
   Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
 /admin.html
-  Cache-Control: no-cache
-/js/*
-  Cache-Control: no-cache
-/css/*
-  Cache-Control: no-cache
-/admin.js
-  Cache-Control: no-cache
-/admin.css
   Cache-Control: no-cache

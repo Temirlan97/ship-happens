@@ -117,15 +117,42 @@ describe('UI feedback submission', () => {
     expect(el('feedbackError').classList.contains('hidden')).toBe(false);
   });
 
-  it('on success, clears the input, hides the panel back to main, and toasts', async () => {
+  it('on success, clears the input and shows an inline confirmation (not just a toast that could render behind the menu)', async () => {
     vi.spyOn(Game.Feedback, 'submitFeedback').mockResolvedValue({ ok: true });
     el('menuFeedbackBtn').click();
     el('feedbackInput').value = 'Great game!';
     el('feedbackSubmitBtn').click();
-    await vi.waitFor(() => expect(el('menuMain').classList.contains('hidden')).toBe(false));
+    await vi.waitFor(() => expect(el('feedbackSuccess').classList.contains('hidden')).toBe(false));
+    expect(el('feedbackForm').classList.contains('hidden')).toBe(true);
+    expect(el('feedbackSuccess').textContent).toMatch(/thanks/i);
+    // Still on the feedback panel, inside the still-open menu screen — the
+    // player explicitly dismisses via Done, nothing snaps them away.
+    expect(el('menuFeedbackPanel').classList.contains('hidden')).toBe(false);
+    expect(el('feedbackInput').value).toBe('');
+  });
+
+  it('the Done button on the success view returns to the main panel', async () => {
+    vi.spyOn(Game.Feedback, 'submitFeedback').mockResolvedValue({ ok: true });
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = 'Great game!';
+    el('feedbackSubmitBtn').click();
+    await vi.waitFor(() => expect(el('feedbackSuccess').classList.contains('hidden')).toBe(false));
+    el('feedbackDoneBtn').click();
+    expect(el('menuMain').classList.contains('hidden')).toBe(false);
     expect(el('menuFeedbackPanel').classList.contains('hidden')).toBe(true);
-    expect(el('toast').classList.contains('hidden')).toBe(false);
-    expect(el('toast').textContent).toMatch(/thanks/i);
+  });
+
+  it('reopening the panel after a success shows the form again, not the leftover success view', async () => {
+    vi.spyOn(Game.Feedback, 'submitFeedback').mockResolvedValue({ ok: true });
+    el('menuFeedbackBtn').click();
+    el('feedbackInput').value = 'Great game!';
+    el('feedbackSubmitBtn').click();
+    await vi.waitFor(() => expect(el('feedbackSuccess').classList.contains('hidden')).toBe(false));
+    el('feedbackDoneBtn').click();
+
+    el('menuFeedbackBtn').click();
+    expect(el('feedbackForm').classList.contains('hidden')).toBe(false);
+    expect(el('feedbackSuccess').classList.contains('hidden')).toBe(true);
   });
 
   it('on a rate-limited response, shows that specific message and stays on the panel', async () => {

@@ -28,6 +28,7 @@
     el('instructionsBackBtn').addEventListener('click', () => showMenuPanel('main'));
     el('leaderboardBackBtn').addEventListener('click', () => showMenuPanel('main'));
     el('feedbackBackBtn').addEventListener('click', () => showMenuPanel('main'));
+    el('feedbackDoneBtn').addEventListener('click', () => showMenuPanel('main'));
     el('feedbackInput').addEventListener('input', () => updateFeedbackCounter());
     el('feedbackSubmitBtn').addEventListener('click', () => submitFeedback());
     el('menuStartOverBtn').addEventListener('click', () => {
@@ -334,10 +335,12 @@
   }
 
   // Every fresh open should start from a clean slate — a previous
-  // submission's text/error shouldn't linger for the next visit.
+  // submission's text/error/success state shouldn't linger for the next visit.
   function resetFeedbackPanel() {
     el('feedbackInput').value = '';
     el('feedbackError').classList.add('hidden');
+    el('feedbackForm').classList.remove('hidden');
+    el('feedbackSuccess').classList.add('hidden');
     updateFeedbackCounter();
   }
 
@@ -363,8 +366,11 @@
       if (res && res.ok) {
         el('feedbackInput').value = '';
         updateFeedbackCounter();
-        showMenuPanel('main');
-        showToast('Thanks for the feedback!');
+        // An explicit inline confirmation, not just a toast — a toast alone
+        // was easy to miss (and, until the z-index fix above, was actually
+        // rendering invisibly behind the still-open menu screen).
+        el('feedbackForm').classList.add('hidden');
+        el('feedbackSuccess').classList.remove('hidden');
       } else {
         errorEl.textContent = feedbackErrorMessage(res && res.reason);
         errorEl.classList.remove('hidden');

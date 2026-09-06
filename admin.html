@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ship Happens — Admin</title>
 <link rel="icon" type="image/png" href="assets/icons/favicon.png">
-<link rel="stylesheet" href="admin.css">
+<!-- ?v=N cache-busts this — see the matching comment in index.html for why.
+     BUMP whenever admin.js or admin.css changes. -->
+<link rel="stylesheet" href="admin.css?v=1">
 </head>
 <body>
 <div id="passwordGate">
@@ -68,6 +70,6 @@
   </section>
 </div>
 
-<script src="admin.js"></script>
+<script src="admin.js?v=1"></script>
 </body>
 </html>

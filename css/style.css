@@ -429,6 +429,20 @@ html, body {
 }
 .feedback-counter { font-size: 11px; opacity: 0.6; font-variant-numeric: tabular-nums; }
 .feedback-footer .dialog-btn { flex: none; padding: 9px 22px; }
+#feedbackForm.hidden { display: none; }
+.feedback-success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12px 0 4px; gap: 6px; }
+.feedback-success.hidden { display: none; }
+.feedback-success-check {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-green);
+  color: var(--accent-green);
+  font-size: 24px;
+  font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+.feedback-success-text { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
 
 /* ---- end-of-run stats card — designed to be worth a screenshot: a self-
    contained "receipt" of the run with its own branding, not just a HUD
@@ -811,7 +825,11 @@ html, body {
   box-shadow: 0 6px 20px rgba(0,0,0,0.4);
   opacity: 0;
   transition: opacity 0.4s ease, transform 0.4s ease;
-  z-index: 15;
+  /* Above .screen (30) — a toast fired while the menu is open (e.g. the
+     tab-was-inactive notice) was previously rendering invisibly behind its
+     near-opaque backdrop. Still below .dialog-overlay (35) so an actual
+     modal always wins. */
+  z-index: 32;
   max-width: 80%;
   text-align: center;
 }

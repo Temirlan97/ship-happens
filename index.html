@@ -20,7 +20,7 @@
 <meta name="twitter:title" content="Ship Happens">
 <meta name="twitter:description" content="A startup-survival tower defense game — hire your team, defend Production from bugs and incidents, and don't run out of money.">
 <link rel="icon" type="image/png" href="assets/icons/favicon.png">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=1">
 </head>
 <body>
 <div id="game-root">
@@ -212,13 +212,20 @@
     <div id="menuFeedbackPanel" class="menu-panel menu-card menu-subpanel hidden">
       <button class="menu-back-btn" id="feedbackBackBtn">&larr; Back</button>
       <h2 class="menu-subpanel-title">Send Feedback</h2>
-      <p class="menu-feedback-hint">Bugs, ideas, anything — goes straight to the developer.</p>
-      <textarea id="feedbackInput" class="feedback-textarea" maxlength="500" placeholder="What's on your mind?"></textarea>
-      <div class="feedback-footer">
-        <span id="feedbackCounter" class="feedback-counter">0 / 500</span>
-        <button id="feedbackSubmitBtn" class="dialog-btn dialog-btn-primary">Send</button>
+      <div id="feedbackForm">
+        <p class="menu-feedback-hint">Bugs, ideas, anything — goes straight to the developer.</p>
+        <textarea id="feedbackInput" class="feedback-textarea" maxlength="500" placeholder="What's on your mind?"></textarea>
+        <div class="feedback-footer">
+          <span id="feedbackCounter" class="feedback-counter">0 / 500</span>
+          <button id="feedbackSubmitBtn" class="dialog-btn dialog-btn-primary">Send</button>
+        </div>
+        <p id="feedbackError" class="dialog-error hidden"></p>
       </div>
-      <p id="feedbackError" class="dialog-error hidden"></p>
+      <div id="feedbackSuccess" class="feedback-success hidden">
+        <div class="feedback-success-check">&#10003;</div>
+        <p class="feedback-success-text">Thanks for the feedback!</p>
+        <button id="feedbackDoneBtn" class="dialog-btn dialog-btn-primary">Done</button>
+      </div>
     </div>
   </div>
 
@@ -264,17 +271,22 @@
 
 </div>
 
-<script src="js/config.js"></script>
-<script src="js/assets.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/path.js"></script>
-<script src="js/camera.js"></script>
-<script src="js/entities.js"></script>
-<script src="js/waves.js"></script>
-<script src="js/leaderboard.js"></script>
-<script src="js/feedback.js"></script>
-<script src="js/game.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/main.js"></script>
+<!-- ?v=N cache-busts these — Cloudflare Pages ignores _headers'
+     Cache-Control override for its static-asset layer (confirmed: every
+     other custom header applies, this one doesn't), so a stale browser
+     cache is otherwise the only thing serving js/css after a deploy.
+     BUMP THIS NUMBER whenever any js/*.js or css/style.css file changes. -->
+<script src="js/config.js?v=1"></script>
+<script src="js/assets.js?v=1"></script>
+<script src="js/audio.js?v=1"></script>
+<script src="js/path.js?v=1"></script>
+<script src="js/camera.js?v=1"></script>
+<script src="js/entities.js?v=1"></script>
+<script src="js/waves.js?v=1"></script>
+<script src="js/leaderboard.js?v=1"></script>
+<script src="js/feedback.js?v=1"></script>
+<script src="js/game.js?v=1"></script>
+<script src="js/ui.js?v=1"></script>
+<script src="js/main.js?v=1"></script>
 </body>
 </html>
