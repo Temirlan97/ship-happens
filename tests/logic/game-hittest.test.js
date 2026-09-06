@@ -9,6 +9,7 @@ beforeEach(() => {
   PATH = Game.Path;
   Core = Game.Core;
   PATH.relayout(1600, 1000);
+  Game.Camera.zoom = 1; // pins the hitbox math (RX=32, RY=55, LIFT=30) to exact, known values
 });
 
 describe('Core.hitTest', () => {
@@ -30,7 +31,7 @@ describe('Core.hitTest', () => {
     expect(Core.hitTest(c.x, c.y)).toEqual({ type: 'coffee' });
   });
 
-  it("returns the tower when clicking within its 26px hit radius", () => {
+  it('returns the tower when clicking within its expanded sprite hitbox', () => {
     const d = CFG.DESK_POSITIONS[0];
     Core.hireAt(d.col, d.row, 'engineer');
     const tower = Core.towers[0];
@@ -38,16 +39,14 @@ describe('Core.hitTest', () => {
     expect(hit).toEqual({ type: 'tower', tower });
   });
 
-  it('falls back to desk-cell occupancy for a click outside the 26px radius but still on the same cell', () => {
+  it('falls back to desk-cell occupancy for a click outside the sprite hitbox but still on the same cell', () => {
     const d = CFG.DESK_POSITIONS[0];
     Core.hireAt(d.col, d.row, 'engineer');
     const tower = Core.towers[0];
-    // Find an offset that's outside the 26px radius but still resolves to
+    // Find an offset that's outside the ellipse hitbox but still resolves to
     // the tower's own cell via screenToCell — verified as a precondition
     // rather than hand-derived, so this stays correct if geometry changes.
     const x = tower.x, y = tower.y + 27;
-    const dist = Math.hypot(x - tower.x, y - tower.y);
-    expect(dist).toBeGreaterThan(26);
     const cellAtOffset = PATH.screenToCell(x, y);
     expect(cellAtOffset).toEqual({ col: d.col, row: d.row }); // precondition for this test to mean anything
     expect(Core.hitTest(x, y)).toEqual({ type: 'tower', tower });
@@ -68,6 +67,54 @@ describe('Core.hitTest', () => {
     expect(Core.towers).toHaveLength(1); // precondition: the hire actually went through
     const c = PATH.cellCenter(cs.col, cs.row);
     expect(Core.hitTest(c.x, c.y).type).toBe('tower');
+  });
+
+  it('the expanded-hitbox desk scan skips an occupied desk and still finds a different empty one', () => {
+    const occupied = CFG.DESK_POSITIONS[0];
+    const empty = CFG.DESK_POSITIONS[1];
+    Core.hireAt(occupied.col, occupied.row, 'engineer');
+    const c = PATH.cellCenter(empty.col, empty.row);
+    expect(Core.hitTest(c.x, c.y)).toEqual({ type: 'desk', desk: empty });
+  });
+
+  it('the expanded-hitbox coffee check is skipped once the coffee spot is occupied, for a click elsewhere', () => {
+    Core.budget = CFG.TOWER_TYPES.coffee.cost;
+    Core.hireAt(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, 'coffee');
+    const c = PATH.cellCenter(6, 0); // plain empty cell, nowhere near the now-occupied coffee spot
+    expect(Core.hitTest(c.x, c.y)).toBeNull();
+  });
+
+  // The strict-tile-membership fallback (below the expanded ellipse hitbox)
+  // still exists for clicks the ellipse itself doesn't cover, e.g. the wide
+  // lower corners of a tile diamond. A pure vertical offset of +30 world px
+  // (at the zoom=1 pinned above: RX=32, RY=55, LIFT=30) lands just outside
+  // the ellipse — (30+30)/55 ≈ 1.09 > 1 — while still resolving to the same
+  // cell via screenToCell, so these exercise that fallback path for real
+  // rather than just the primary ellipse match.
+  describe('strict-cell fallback (below the expanded ellipse hitbox)', () => {
+    it('still finds an occupied tower', () => {
+      const d = CFG.DESK_POSITIONS[0];
+      Core.hireAt(d.col, d.row, 'engineer');
+      const tower = Core.towers[0];
+      expect(Core.hitTest(tower.x, tower.y + 30)).toEqual({ type: 'tower', tower });
+    });
+
+    it('still finds the empty coffee spot', () => {
+      const cs = CFG.COFFEE_SPOT;
+      const c = PATH.cellCenter(cs.col, cs.row);
+      expect(Core.hitTest(c.x, c.y + 30)).toEqual({ type: 'coffee' });
+    });
+
+    it('still finds an empty desk', () => {
+      const d = CFG.DESK_POSITIONS[0];
+      const c = PATH.cellCenter(d.col, d.row);
+      expect(Core.hitTest(c.x, c.y + 30)).toEqual({ type: 'desk', desk: d });
+    });
+
+    it('still correctly returns null for a plain cell with nothing on it', () => {
+      const c = PATH.cellCenter(6, 0); // not a desk, not the coffee spot
+      expect(Core.hitTest(c.x, c.y + 30)).toBeNull();
+    });
   });
 });
 

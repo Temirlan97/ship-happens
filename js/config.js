@@ -46,7 +46,7 @@
         name: 'Product Manager', cost: 7500, cooldown: 5000,
         income: 1200, interval: 4000,
         color: '#f2c94c', glow: '#ffe27a', core: '#fff8dc',
-        ranks: ['Associate PM', 'PM', 'Senior PM', 'Director of Product / CPO'],
+        ranks: ['Associate PM', 'Product Manager', 'Senior PM', 'Director of Product / CPO'],
         salaryBase: 1000
       },
       coffee: {

@@ -98,8 +98,8 @@
 
         if (hit && hit.type === 'coffee') {
           this.selectedTower = null; window.Game.UI.updateUpgradePanel();
-          this.pendingHireDesk = null; window.Game.UI.showHirePanel(null);
-          this.hireAt(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, 'coffee');
+          this.pendingHireDesk = CFG.COFFEE_SPOT;
+          window.Game.UI.showHirePanel(CFG.COFFEE_SPOT, ['coffee']);
           return;
         }
 
@@ -234,6 +234,16 @@
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => this.handleResize(), 200);
       });
+
+      // A run in progress is real, unsaved state (budget, hires, sprint
+      // progress) — closing the tab loses all of it, so confirm first.
+      // Browsers ignore any custom message these days and just show their
+      // own generic prompt; setting returnValue is still what triggers it.
+      window.addEventListener('beforeunload', (e) => {
+        if (this.state !== 'playing') return;
+        e.preventDefault();
+        e.returnValue = '';
+      });
     },
 
     // The world's pixel layout is fixed forever (see PATH.init at boot) —
@@ -286,24 +296,48 @@
     // clicks that land near a tile edge) beats the empty coffee spot, which
     // beats an empty desk.
     hitTest(x, y) {
-      // A constant SCREEN-space tap target (not world-space) — otherwise a
-      // 26px radius shrinks to a few unusable screen-pixels once the camera
-      // auto-fits a phone screen zoomed way out.
-      const R = 26 / window.Game.Camera.zoom;
-      const hitTower = this.towers.find(t => Math.hypot(t.x - x, t.y - y) < R);
+      const zoom = window.Game.Camera.zoom;
+      // Character/desk/coffee sprites are drawn tall and anchored at their
+      // FEET (near the tile's own ground point), extending far upward from
+      // there (~80-96px) — a hit test centered on the ground point alone
+      // badly undershoots the visible sprite, especially near the head/top,
+      // which is exactly where people intuitively click. An ellipse offset
+      // upward toward the sprite's visual center, taller than it is wide,
+      // matches what's actually on screen far better than a small centered
+      // circle did. Kept in constant SCREEN space (divided by zoom) so it
+      // doesn't shrink to unusable once the camera zooms out on a phone.
+      const RX = 32 / zoom, RY = 55 / zoom, LIFT = 30 / zoom;
+      const inSpriteHitbox = (cx, cy) => {
+        const dx = (x - cx) / RX, dy = (y - (cy - LIFT)) / RY;
+        return dx * dx + dy * dy < 1;
+      };
+
+      const hitTower = this.towers.find(t => inSpriteHitbox(t.x, t.y));
       if (hitTower) return { type: 'tower', tower: hitTower };
 
+      // Same generous hitbox for empty desks/coffee spot — their sprites are
+      // just as tall, checked before falling back to strict tile membership.
+      for (const d of CFG.DESK_POSITIONS) {
+        if (this.towerAt(d.col, d.row)) continue;
+        const c = PATH.cellCenter(d.col, d.row);
+        if (inSpriteHitbox(c.x, c.y)) return { type: 'desk', desk: d };
+      }
+      const cs = CFG.COFFEE_SPOT;
+      if (!this.towerAt(cs.col, cs.row)) {
+        const cc = PATH.cellCenter(cs.col, cs.row);
+        if (inSpriteHitbox(cc.x, cc.y)) return { type: 'coffee' };
+      }
+
+      // Fallback: strict tile membership, for clicks the generous hitbox
+      // above doesn't cover (e.g. the wide lower corners of a tile diamond).
       const cell = PATH.screenToCell(x, y);
       const occupied = this.towerAt(cell.col, cell.row);
       if (occupied) return { type: 'tower', tower: occupied };
 
-      const cs = CFG.COFFEE_SPOT;
       if (cell.col === cs.col && cell.row === cs.row) return { type: 'coffee' };
 
       const desk = CFG.DESK_POSITIONS.find(d => d.col === cell.col && d.row === cell.row);
-      if (desk) return { type: 'desk', desk };
-
-      return null;
+      return desk ? { type: 'desk', desk } : null;
     },
 
     // Hires `type` at a specific desk (col,row) — desks are pre-placed valid
@@ -374,7 +408,7 @@
     },
 
     cycleSpeed() {
-      this.speed = this.speed === 1 ? 2 : (this.speed === 2 ? 3 : 1);
+      this.speed = this.speed === 1 ? 2 : (this.speed === 2 ? 3 : (this.speed === 3 ? 4 : 1));
       window.Game.UI.updateHUD();
     },
 
@@ -686,20 +720,25 @@
         ctx.restore();
       }
 
+      // Same "+" pulsing marker as an empty desk (no floating price tag) —
+      // the coffee spot now opens a confirm-to-hire panel just like a desk
+      // does, instead of hiring instantly, so it gets the identical
+      // no-cost-shown-on-canvas treatment.
       const cs = CFG.COFFEE_SPOT;
       if (!this.towers.some(tw => tw.col === cs.col && tw.row === cs.row)) {
         const c = PATH.cellCenter(cs.col, cs.row);
         const coffeeSprite = Assets.get('prop_coffee_broken');
         const coffeeHovered = hover && hover.type === 'coffee';
         const coffeeMult = coffeeHovered ? 1.12 : 1;
+        const coffeePulse = 0.5 + Math.sin(t * 2 + cs.col * 3 + cs.row * 5) * 0.2;
         ctx.save();
         ctx.translate(c.x, c.y);
         if (coffeeHovered) { ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 16; }
-        let priceY = 16;
+        let markerY = -12;
         if (coffeeSprite) {
           const h = 78 * coffeeMult, w = h * (coffeeSprite.naturalWidth / coffeeSprite.naturalHeight);
           ctx.drawImage(coffeeSprite, -w / 2, 14 - h, w, h);
-          priceY = 14 - h - 6;
+          markerY = 14 - h - 6;
           ctx.shadowBlur = 0;
         } else {
           ctx.fillStyle = 'rgba(0,0,0,0.25)';
@@ -713,10 +752,14 @@
             ctx.shadowBlur = 0;
           }
         }
-        ctx.font = 'bold 9px sans-serif'; ctx.fillStyle = '#39ff88'; ctx.textAlign = 'center';
-        ctx.fillText(window.Game.fmt(this.hireCostFor('coffee')), 0, priceY);
-        ctx.font = '8px sans-serif'; ctx.fillStyle = 'rgba(217,196,255,0.85)';
-        ctx.fillText('Boosts whole team', 0, priceY - 11);
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = '#39ff88'; ctx.shadowBlur = 10 * coffeePulse;
+        ctx.fillStyle = `rgba(57,255,136,${0.5 + coffeePulse * 0.35})`;
+        ctx.beginPath(); ctx.arc(0, markerY, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#08150e';
+        ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('+', 0, markerY + 1);
         ctx.restore();
       }
     },

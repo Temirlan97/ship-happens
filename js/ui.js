@@ -63,17 +63,20 @@
       : 'Scale-Up — this is the endless grind now';
   }
 
-  // The popup that opens when an empty desk is clicked — one button per
-  // human role (Coffee Machine hires directly on click, no picker, since its
-  // spot only ever offers the one role). Reuses the same `.card` styling the
-  // old toolbar used, just as a floating popup instead of a docked bar.
-  function showHirePanel(desk) {
+  // The popup that opens when an empty desk (or the coffee spot) is
+  // clicked — one card per offered role. Desks offer every human role;
+  // the coffee spot offers just itself (`roles` param), so it gets the
+  // exact same confirm-before-hiring UI instead of hiring instantly.
+  // Reuses the same `.card` styling the old toolbar used, just as a
+  // floating popup instead of a docked bar.
+  function showHirePanel(desk, roles) {
     const panel = el('hirePanel');
     if (!desk || !core) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    const keys = roles || Object.keys(CFG.TOWER_TYPES).filter((k) => k !== 'coffee');
 
     panel.innerHTML = '';
-    Object.entries(CFG.TOWER_TYPES).forEach(([key, def]) => {
-      if (key === 'coffee') return; // has its own dedicated spot, not offered here
+    keys.forEach((key) => {
+      const def = CFG.TOWER_TYPES[key];
       const s = core.getCardState(key);
       const btn = document.createElement('button');
       btn.dataset.type = key;

@@ -68,11 +68,16 @@ describe('pointerdown routing', () => {
     expect(document.getElementById('hirePanel').classList.contains('hidden')).toBe(false);
   });
 
-  it('clicking the empty coffee spot hires it directly (no panel)', () => {
+  it('clicking the empty coffee spot opens a hire panel for it, same as a desk', () => {
     Core.budget = CFG.TOWER_TYPES.coffee.cost;
     const cs = CFG.COFFEE_SPOT;
     const c = PATH.cellCenter(cs.col, cs.row);
     click(c.x, c.y);
+    expect(Core.pendingHireDesk).toEqual(cs);
+    expect(document.getElementById('hirePanel').classList.contains('hidden')).toBe(false);
+    expect(Core.towers).toHaveLength(0); // not hired yet — confirming via the panel is a separate step
+
+    document.querySelector('#hirePanel button[data-type="coffee"]').click();
     expect(Core.towers).toHaveLength(1);
     expect(Core.towers[0].type).toBe('coffee');
   });
@@ -236,6 +241,39 @@ describe('visibilitychange auto-pause', () => {
   });
 });
 
+describe('beforeunload confirmation', () => {
+  // Every test in this file calls bindInput() (via the shared beforeEach),
+  // each adding its own beforeunload listener to the one jsdom `window` this
+  // whole file shares — none ever get unbound. Dispatching a real
+  // 'beforeunload' event here would also trigger every earlier test's
+  // still-registered (and still state:'playing') listener, so instead this
+  // captures and calls just this test's own handler directly, isolated from
+  // that accumulation.
+  function captureBeforeUnloadHandler() {
+    const spy = vi.spyOn(window, 'addEventListener');
+    Core.bindInput();
+    const call = spy.mock.calls.find(([type]) => type === 'beforeunload');
+    spy.mockRestore();
+    return call[1];
+  }
+
+  it('prevents the default (triggers the browser confirm prompt) while a run is in progress', () => {
+    const handler = captureBeforeUnloadHandler();
+    Core.state = 'playing';
+    const e = { preventDefault: vi.fn() };
+    handler(e);
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
+
+  it('does nothing while not playing', () => {
+    const handler = captureBeforeUnloadHandler();
+    Core.state = 'paused';
+    const e = { preventDefault: vi.fn() };
+    handler(e);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+  });
+});
+
 describe('window resize (debounced)', () => {
   beforeEach(() => vi.useFakeTimers());
 
@@ -303,10 +341,11 @@ describe('Core.handleResize', () => {
 });
 
 describe('misc small Core methods not otherwise exercised', () => {
-  it('cycleSpeed cycles 1x -> 2x -> 3x -> 1x', () => {
+  it('cycleSpeed cycles 1x -> 2x -> 3x -> 4x -> 1x', () => {
     expect(Core.speed).toBe(1);
     Core.cycleSpeed(); expect(Core.speed).toBe(2);
     Core.cycleSpeed(); expect(Core.speed).toBe(3);
+    Core.cycleSpeed(); expect(Core.speed).toBe(4);
     Core.cycleSpeed(); expect(Core.speed).toBe(1);
   });
 
