@@ -405,13 +405,16 @@
     ctx.restore();
   }
 
-  // Opposite side from the kiosk's own `end.x + 14` offset (see drawProduct)
-  // so the two never overlap. Exported so game.js's ability/income logic
-  // can center on the exact same point this draws at, instead of a second
-  // hand-tuned offset drifting out of sync with this one.
+  // Off the road, in the adjacent open ground — same idea as a desk sitting
+  // beside the path rather than on it (TILE_H is 66, so -70 clears a full
+  // tile's diamond height plus a little breathing room). Opposite side from
+  // the kiosk's own `end.x + 14` offset (see drawProduct) so the two never
+  // overlap. Exported so game.js's ability/income logic can center on the
+  // exact same point this draws at, instead of a second hand-tuned offset
+  // drifting out of sync with this one.
   function ceoAnchor() {
     const end = waypoints[waypoints.length - 1];
-    return { x: end.x - 46, y: end.y };
+    return { x: end.x - 60, y: end.y - 70 };
   }
 
   // ---- The CEO: a free, always-present, static fixture — portrait swaps
@@ -426,6 +429,8 @@
     const tierColors = ['#e0503c', '#a9a9a9', '#5b9dff', '#3a4150', '#f2c94c', '#c9a876'];
     const accent = tierColors[stateIndex];
 
+    drawCeoProp(ctx, px, py, stateIndex);
+
     if (ready) {
       ctx.save();
       const pulse = 0.5 + Math.sin(t * 3) * 0.5;
@@ -436,29 +441,94 @@
       ctx.restore();
     }
 
+    // Gentle idle sway, same trick Tower uses for hired teammates (rotated
+    // around the feet, not the sprite's own center, so it reads as a sway
+    // rather than a tip) — a fixed phase is fine, there's only ever one CEO.
+    ctx.save();
+    ctx.translate(px, py);
+    const sway = Math.sin(t * 0.5) * 0.035;
+    ctx.rotate(sway);
+    ctx.translate(-px, -py);
+
     const sprite = window.Game.Assets.get('character_ceo_' + Core.ceoGender + '_' + (stateIndex + 1));
     if (sprite) {
       const h = 110, w = h * (sprite.naturalWidth / sprite.naturalHeight);
       ctx.drawImage(sprite, px - w / 2, py - h + 16, w, h);
-      return;
+    } else {
+      // Procedural placeholder — a simple accent-colored badge, not an
+      // attempt at a full figure. Only used if a specific sprite key fails
+      // to load; the real art (assets/characters/ceo_<gender>_<1-6>.png) is
+      // wired into assets.js's MANIFEST and should always be present.
+      ctx.fillStyle = 'rgba(0,0,0,0.32)';
+      ctx.beginPath(); ctx.ellipse(px, py + 14, 20, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = accent;
+      ctx.beginPath(); ctx.arc(px, py - 20, 16, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1a2332';
+      ctx.fillRect(px - 14, py - 2, 28, 20);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('CEO', px, py - 17);
     }
+    ctx.restore();
 
-    // Procedural placeholder — a simple accent-colored badge, not an
-    // attempt at a full figure. Only used if a specific sprite key fails
-    // to load; the real art (assets/characters/ceo_<gender>_<1-6>.png) is
-    // wired into assets.js's MANIFEST and should always be present.
+    // Ability status — replaces what used to be a HUD button; clicking him
+    // (see Core.hitTest/runTap) is the trigger now, so the affordance lives
+    // on the character himself.
     ctx.save();
-    ctx.translate(px, py);
-    ctx.fillStyle = 'rgba(0,0,0,0.32)';
-    ctx.beginPath(); ctx.ellipse(0, 14, 20, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = accent;
-    ctx.beginPath(); ctx.arc(0, -20, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1a2332';
-    ctx.fillRect(-14, -2, 28, 20);
-    ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('CEO', 0, -17);
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
+    ctx.fillStyle = ready ? '#5fe37f' : '#8f9bb5';
+    ctx.fillText(ready ? 'All-Hands: Ready' : `All-Hands: ${Math.ceil(Core.ceoAbilityCooldown / 1000)}s`, px, py + 30);
+    ctx.restore();
+  }
+
+  // A tiny bit of set-dressing beside his feet that upgrades with wealth
+  // tier — purely decorative, deliberately simple procedural shapes rather
+  // than more generated art for a one-off detail. Drawn behind everything
+  // else so the sway/idle animation above never overlaps it.
+  function drawCeoProp(ctx, px, py, stateIndex) {
+    const x = px + 30, y = py + 14;
+    ctx.save();
+    if (stateIndex === 0) { // Crisis — a crumpled-paper trash pile
+      ctx.fillStyle = '#5a5f6b';
+      ctx.fillRect(x - 8, y - 10, 16, 12);
+      ctx.fillStyle = '#e8e8e8';
+      ctx.beginPath(); ctx.arc(x - 3, y - 12, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 4, y - 10, 2.5, 0, Math.PI * 2); ctx.fill();
+    } else if (stateIndex === 1) { // Bootstrapping — a cheap cup of instant ramen
+      ctx.fillStyle = '#e0503c';
+      ctx.beginPath(); ctx.moveTo(x - 7, y - 12); ctx.lineTo(x + 7, y - 12); ctx.lineTo(x + 5, y); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x - 4, y - 15); ctx.quadraticCurveTo(x, y - 20, x + 4, y - 15); ctx.stroke();
+    } else if (stateIndex === 2) { // Growing — a coffee cup
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(x - 6, y - 12, 12, 12);
+      ctx.strokeStyle = '#c9a876'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x + 8, y - 6, 4, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.moveTo(x - 3, y - 16); ctx.quadraticCurveTo(x, y - 21, x + 3, y - 16); ctx.stroke();
+    } else if (stateIndex === 3) { // Established — a small potted plant
+      ctx.fillStyle = '#8a6a45';
+      ctx.beginPath(); ctx.moveTo(x - 7, y); ctx.lineTo(x + 7, y); ctx.lineTo(x + 5, y - 10); ctx.lineTo(x - 5, y - 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#39c97a';
+      ctx.beginPath(); ctx.ellipse(x, y - 16, 5, 9, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x + 5, y - 14, 5, 8, 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x - 5, y - 14, 5, 8, -1.3, 0, Math.PI * 2); ctx.fill();
+    } else if (stateIndex === 4) { // Successful — a small trophy
+      ctx.fillStyle = '#f2c94c';
+      ctx.beginPath(); ctx.arc(x, y - 14, 7, Math.PI * 0.15, Math.PI * 0.85, false); ctx.fill();
+      ctx.fillRect(x - 3, y - 12, 6, 8);
+      ctx.fillRect(x - 6, y - 4, 12, 3);
+    } else { // Tycoon — a small stack of gold
+      ctx.fillStyle = '#f2c94c';
+      [0, 1, 2].forEach((i) => {
+        ctx.beginPath(); ctx.ellipse(x, y - 2 - i * 4, 9 - i, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.strokeStyle = '#c9a020'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(x, y - 10, 7, 3, 0, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.restore();
   }
 

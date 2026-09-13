@@ -19,8 +19,12 @@
     el('upgradePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('hirePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('menuPlayBtn').addEventListener('click', () => {
-      if (core.state === 'paused') core.togglePause();
-      else core.start();
+      if (core.state === 'paused') { core.togglePause(); return; }
+      // The name/gender picker is a one-time, pre-game step (see
+      // Core.confirmIdentity) — every Play press after that goes straight
+      // into a fresh game, same as before this feature existed.
+      if (!core.ceoOnboarded) { showMenuPanel('namepick'); return; }
+      core.start();
     });
     el('menuInstructionsBtn').addEventListener('click', () => showMenuPanel('instructions'));
     el('menuLeaderboardBtn').addEventListener('click', () => showMenuPanel('leaderboard'));
@@ -28,6 +32,7 @@
     el('instructionsBackBtn').addEventListener('click', () => showMenuPanel('main'));
     el('leaderboardBackBtn').addEventListener('click', () => showMenuPanel('main'));
     el('feedbackBackBtn').addEventListener('click', () => showMenuPanel('main'));
+    el('namePickBackBtn').addEventListener('click', () => showMenuPanel('main'));
     el('feedbackDoneBtn').addEventListener('click', () => showMenuPanel('main'));
     el('feedbackInput').addEventListener('input', () => updateFeedbackCounter());
     el('feedbackSubmitBtn').addEventListener('click', () => submitFeedback());
@@ -44,13 +49,14 @@
     el('acquisitionAcceptBtn').addEventListener('click', () => core.acceptAcquisition());
     el('acquisitionDeclineBtn').addEventListener('click', () => core.declineAcquisition());
     el('acquisitionDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
-    el('ceoAbilityBtn').addEventListener('click', () => core.useCeoAbility());
-    el('ceoGenderMaleBtn').addEventListener('click', () => core.setCeoGender('male'));
-    el('ceoGenderFemaleBtn').addEventListener('click', () => core.setCeoGender('female'));
+    el('ceoPortraitMaleBtn').addEventListener('click', () => core.confirmIdentity(el('ceoNameInput').value, 'male'));
+    el('ceoPortraitFemaleBtn').addEventListener('click', () => core.confirmIdentity(el('ceoNameInput').value, 'female'));
+    el('ceoNameInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') core.confirmIdentity(el('ceoNameInput').value, core.ceoGender);
+    });
     renderTimeline();
     showScreen('menu');
     updateHUD();
-    updateGenderToggle();
     loadVersionBadge();
   }
 
@@ -210,10 +216,9 @@
       banner.classList.toggle('urgent', secs <= 3);
     }
 
-    const ceoBtn = el('ceoAbilityBtn');
-    const ceoDisabled = core.budget < 0 || core.ceoAbilityCooldown > 0;
-    ceoBtn.disabled = ceoDisabled;
-    el('ceoAbilityValue').textContent = core.budget < 0 ? '' : (core.ceoAbilityCooldown > 0 ? `${Math.ceil(core.ceoAbilityCooldown / 1000)}s` : 'Ready');
+    // The ability's ready/cooldown state is now shown as a label drawn
+    // directly above the CEO on the canvas (see path.js's drawCeo) — no HUD
+    // element for it, since clicking him is the trigger.
 
     const warn = el('paydayWarning');
     if (core.negativeBudgetTimer > 0) {
@@ -356,11 +361,13 @@
   // player is looking at).
   function showMenuPanel(name) {
     el('menuMain').classList.toggle('hidden', name !== 'main');
+    el('menuNamePickPanel').classList.toggle('hidden', name !== 'namepick');
     el('menuInstructionsPanel').classList.toggle('hidden', name !== 'instructions');
     el('menuLeaderboardPanel').classList.toggle('hidden', name !== 'leaderboard');
     el('menuFeedbackPanel').classList.toggle('hidden', name !== 'feedback');
     if (name === 'leaderboard') showMenuLeaderboard();
     if (name === 'feedback') resetFeedbackPanel();
+    if (name === 'namepick') el('ceoNameInput').focus();
   }
 
   // Every fresh open should start from a clean slate — a previous
@@ -494,7 +501,7 @@
 
   function showAcquisitionDialog() {
     el('acquisitionMessage').textContent =
-      `You've grown Ship Happens to ${window.Game.fmt(core.budget)}. A buyer wants to acquire the whole ` +
+      `You've grown your startup to ${window.Game.fmt(core.budget)}. A buyer wants to acquire the whole ` +
       `company for ${window.Game.fmt(core.pendingAcquisitionPrice)}. Selling ends the game right here — ` +
       `keep playing, or cash out for good?`;
     el('acquisitionDialog').classList.remove('hidden');
@@ -503,18 +510,12 @@
     el('acquisitionDialog').classList.add('hidden');
   }
 
-  function updateGenderToggle() {
-    if (!core) return;
-    el('ceoGenderMaleBtn').classList.toggle('active', core.ceoGender === 'male');
-    el('ceoGenderFemaleBtn').classList.toggle('active', core.ceoGender === 'female');
-  }
-
   window.Game.UI = {
     init, updateHUD, showScreen, showMenuPanel,
     updateUpgradePanel, positionUpgradePanel, showToast,
     renderTimeline, updateTimeline, showHirePanel, refreshHirePanel,
     showConfirmDialog, hideConfirmDialog,
     showNameDialog, hideNameDialog, renderLeaderboard,
-    showAcquisitionDialog, hideAcquisitionDialog, updateGenderToggle
+    showAcquisitionDialog, hideAcquisitionDialog
   };
 })();

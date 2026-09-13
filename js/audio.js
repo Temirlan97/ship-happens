@@ -171,6 +171,19 @@
     gameOver() {
       ensureCtx();
       [220, 196, 174, 146].forEach((f, i) => tone(f, 0.5, 'triangle', 0.2, { delay: i * 0.22 }));
+    },
+    // The CEO's "All-Hands" — deliberately bigger than fundingRound() (a
+    // long cooldown deserves a moment that actually sounds like one): a low
+    // boom for weight, a rising sweep for anticipation, a noise punch on
+    // the hit, then a wider triumphant chord than fundingRound's plain
+    // arpeggio.
+    allHands() {
+      ensureCtx();
+      tone(70, 0.5, 'sine', 0.3);
+      sweep(300, 900, 0.18, 'sawtooth', 0.14);
+      noiseBurst(0.15, 0.3, 2000, { delay: 0.16, filterType: 'bandpass' });
+      [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.45, 'triangle', 0.22, { delay: 0.18 + i * 0.05 }));
+      [261, 329, 392].forEach((f) => tone(f, 0.6, 'sine', 0.14, { delay: 0.18 }));
     }
   };
 

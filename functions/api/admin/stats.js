@@ -32,5 +32,15 @@ export async function onRequestGet({ request, env }) {
      ORDER BY day ASC`
   ).bind(Date.now() - 14 * 24 * 60 * 60 * 1000).all();
 
-  return json({ totals, bySprint, last14Days });
+  // A fun stat, not a serious one — the CEO gender picker is cosmetic, so
+  // this is just "does it skew" curiosity, not anything acted on.
+  const { results: ceoByGender } = await env.DB.prepare(
+    `SELECT ceo_gender AS gender, COUNT(*) AS n, COALESCE(AVG(claimed_sprint), 0) AS avgSprintReached
+     FROM runs
+     WHERE finished_at IS NOT NULL AND ceo_gender IS NOT NULL
+     GROUP BY ceo_gender
+     ORDER BY ceo_gender ASC`
+  ).all();
+
+  return json({ totals, bySprint, last14Days, ceoByGender });
 }

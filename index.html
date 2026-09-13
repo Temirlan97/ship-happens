@@ -20,7 +20,7 @@
 <meta name="twitter:title" content="Ship Happens">
 <meta name="twitter:description" content="A startup-survival tower defense game — hire your team, defend Production from bugs and incidents, and don't run out of money.">
 <link rel="icon" type="image/png" href="assets/icons/favicon.png">
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 <div id="game-root">
@@ -39,7 +39,6 @@
   <div id="hudTopRight" class="hud-badge">
     <div id="hudControls">
       <button id="nextSprintBtn" class="icon-btn">Skip Wait</button>
-      <button id="ceoAbilityBtn" class="icon-btn">All-Hands<span id="ceoAbilityValue"></span></button>
       <button id="speedBtn" class="icon-btn speed-btn"><span id="speedValue">1x</span></button>
       <button id="pauseBtn" class="icon-btn">Pause</button>
       <button id="muteBtn" class="icon-btn">Sound: On</button>
@@ -115,16 +114,26 @@
   <div id="screen-menu" class="screen">
     <div id="menuMain" class="menu-panel menu-card menu-main-card">
       <h1>Ship Happens</h1>
-      <div id="ceoGenderToggle" class="ceo-gender-toggle">
-        <button id="ceoGenderMaleBtn" class="gender-btn">Male CEO</button>
-        <button id="ceoGenderFemaleBtn" class="gender-btn">Female CEO</button>
-      </div>
       <div class="menu-actions">
         <button id="menuPlayBtn" class="primary-btn">Play</button>
         <button id="menuInstructionsBtn" class="menu-btn">Instructions</button>
         <button id="menuLeaderboardBtn" class="menu-btn">Leaderboard</button>
         <button id="menuFeedbackBtn" class="menu-btn">Feedback</button>
         <button id="menuStartOverBtn" class="menu-btn menu-btn-danger hidden">Start Over</button>
+      </div>
+    </div>
+
+    <div id="menuNamePickPanel" class="menu-panel menu-card menu-subpanel hidden">
+      <button class="menu-back-btn" id="namePickBackBtn">&larr; Back</button>
+      <h2 class="menu-subpanel-title">Name Your Founder</h2>
+      <input id="ceoNameInput" class="dialog-input" maxlength="20" placeholder="Your name" autocomplete="off" />
+      <div class="ceo-portrait-row">
+        <button id="ceoPortraitMaleBtn" class="ceo-portrait-btn" aria-label="Play as a male founder">
+          <img src="assets/characters/ceo_male_2.png" alt="">
+        </button>
+        <button id="ceoPortraitFemaleBtn" class="ceo-portrait-btn" aria-label="Play as a female founder">
+          <img src="assets/characters/ceo_female_2.png" alt="">
+        </button>
       </div>
     </div>
 
@@ -283,17 +292,17 @@
      other custom header applies, this one doesn't), so a stale browser
      cache is otherwise the only thing serving js/css after a deploy.
      BUMP THIS NUMBER whenever any js/*.js or css/style.css file changes. -->
-<script src="js/config.js?v=2"></script>
+<script src="js/config.js?v=3"></script>
 <script src="js/assets.js?v=2"></script>
-<script src="js/audio.js?v=1"></script>
-<script src="js/path.js?v=2"></script>
+<script src="js/audio.js?v=2"></script>
+<script src="js/path.js?v=3"></script>
 <script src="js/camera.js?v=1"></script>
 <script src="js/entities.js?v=1"></script>
 <script src="js/waves.js?v=1"></script>
 <script src="js/leaderboard.js?v=1"></script>
 <script src="js/feedback.js?v=1"></script>
-<script src="js/game.js?v=2"></script>
-<script src="js/ui.js?v=3"></script>
+<script src="js/game.js?v=3"></script>
+<script src="js/ui.js?v=4"></script>
 <script src="js/main.js?v=1"></script>
 </body>
 </html>

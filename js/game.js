@@ -40,6 +40,23 @@
   function saveCeoGender(g) {
     try { localStorage.setItem('ship_happens_ceo_gender', g); } catch (e) { /* file:// storage can be unavailable */ }
   }
+  function loadCeoName() {
+    try { return localStorage.getItem('ship_happens_ceo_name') || ''; }
+    catch (e) { return ''; }
+  }
+  function saveCeoName(n) {
+    try { localStorage.setItem('ship_happens_ceo_name', n); } catch (e) { /* file:// storage can be unavailable */ }
+  }
+  // Separate from gender/name themselves (which always have a value — a
+  // coin-flip default, an empty string) so "has the player ever actually
+  // gone through the picker" is its own explicit fact, not inferred.
+  function loadCeoOnboarded() {
+    try { return localStorage.getItem('ship_happens_ceo_onboarded') === '1'; }
+    catch (e) { return false; }
+  }
+  function saveCeoOnboarded() {
+    try { localStorage.setItem('ship_happens_ceo_onboarded', '1'); } catch (e) { /* file:// storage can be unavailable */ }
+  }
   const Core = {
     state: 'start', // start | playing | paused | gameover
     budget: CFG.START_BUDGET,
@@ -63,9 +80,12 @@
     // as telemetry for later.
     stats: { income: 0, salaries: 0, lost: 0, kills: 0, ceoGender: null, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0 },
     // CEO run state — cooldown/buff timers and per-run counters reset on
-    // restart(); ceoGender does not, it's a persisted preference (see
-    // loadCeoGender above), set here once at boot.
+    // restart(); ceoGender/ceoName/ceoOnboarded do not, they're persisted
+    // preferences (see loadCeoGender/loadCeoName/loadCeoOnboarded above),
+    // set here once at boot.
     ceoGender: loadCeoGender(),
+    ceoName: loadCeoName(),
+    ceoOnboarded: loadCeoOnboarded(),
     ceoAbilityCooldown: 0,
     ceoBuffTimer: 0,
     ceoIncomeTimer: 0,
@@ -97,12 +117,24 @@
       requestAnimationFrame(this.loop.bind(this));
     },
 
-    setCeoGender(gender) {
-      if (gender !== 'male' && gender !== 'female') return;
-      this.ceoGender = gender;
-      this.stats.ceoGender = gender;
-      saveCeoGender(gender);
-      window.Game.UI.updateGenderToggle();
+    // The one-time pre-game picker's confirm action (see the menuNamePick
+    // panel/ui.js) — name is purely cosmetic/local (used in a couple of
+    // flavor toasts, see updateCeo), never sent anywhere, so no filtering
+    // needed the way the leaderboard's player_name gets. Persists so this
+    // is only ever asked once per browser, then calls start() to actually
+    // begin the run — this method IS the "Play" action for a first-time
+    // player, not a separate step before it.
+    confirmIdentity(name, gender) {
+      const g = (gender === 'male' || gender === 'female') ? gender : this.ceoGender;
+      const trimmedName = (typeof name === 'string' ? name.trim() : '').slice(0, 20);
+      this.ceoGender = g;
+      this.ceoName = trimmedName;
+      this.stats.ceoGender = g;
+      this.ceoOnboarded = true;
+      saveCeoGender(g);
+      saveCeoName(trimmedName);
+      saveCeoOnboarded();
+      this.start();
     },
 
     // 0-5, driven entirely by state Core already tracks for other reasons —
@@ -112,12 +144,12 @@
     // those it's already well past what funding stage alone communicates.
     get ceoStateIndex() {
       if (this.budget < 0) return 0; // Crisis
-      const stageKey = this.waves.stage.key;
-      if (this.acquisitionMilestoneIndex >= 2) return 5; // Tycoon
-      if (this.acquisitionMilestoneIndex === 1) return 4; // Successful
-      if (stageKey === 'preseed') return 1; // Bootstrapping
-      if (stageKey === 'seed' || stageKey === 'seriesA') return 2; // Growing
-      return 3; // Established (seriesB/seriesC/scaleup, no milestone yet)
+      const t = CFG.CEO.wealthThresholds;
+      if (this.budget < t[0]) return 1; // Bootstrapping
+      if (this.budget < t[1]) return 2; // Growing
+      if (this.budget < t[2]) return 3; // Established
+      if (this.budget < t[3]) return 4; // Successful
+      return 5; // Tycoon
     },
 
     // "Paydays of runway" the current Budget covers at the current burn
@@ -143,9 +175,36 @@
       this.ceoBuffTimer = CFG.CEO.abilityBuffDurationMs;
       this.ceoAbilityCooldown = CFG.CEO.abilityCooldownMaxMs - (CFG.CEO.abilityCooldownMaxMs - CFG.CEO.abilityCooldownMinMs) * ratio;
       this.stats.ceoAbilityUses++;
-      window.Game.Audio.fundingRound();
-      this.spawnParticles(anchor.x, anchor.y, '#f2c94c', 14, 90);
-      window.Game.UI.showToast('All-Hands: the team rallies!');
+      this.triggerAllHandsEffect(anchor);
+    },
+
+    // A long cooldown deserves a moment that actually reads as a big deal —
+    // a screen shake, a 3-ring shockwave out from the CEO, a bright flash,
+    // a large gold particle burst, and a dead-center banner (same rendering
+    // as a funding-round's bigPayday text, just gold instead of green and
+    // no dollar amount), plus a distinct fanfare instead of reusing
+    // fundingRound()'s cue.
+    triggerAllHandsEffect(anchor) {
+      const GOLD = '#ffd76b';
+      this.shakeTimer = Math.max(this.shakeTimer, 0.6);
+      window.Game.Audio.allHands();
+      [0.5, 0.8, 1.1].forEach((mult, i) => {
+        this.effects.push({
+          type: 'ring', x: anchor.x, y: anchor.y,
+          life: 0.5 + i * 0.2, maxLife: 0.5 + i * 0.2,
+          maxRadius: CFG.CEO.abilityRadius * mult, color: GOLD
+        });
+      });
+      this.effects.push({ type: 'flash', life: 0.3, maxLife: 0.3, x: anchor.x, y: anchor.y, r: 140, color: GOLD });
+      this.effects.push({
+        type: 'bigPayday', x: canvas.width / 2, y: canvas.height / 2,
+        life: 1.8, maxLife: 1.8, text: 'ALL-HANDS!', color: GOLD
+      });
+      this.spawnParticles(anchor.x, anchor.y, GOLD, 40, 130);
+    },
+
+    get ceoDisplayName() {
+      return this.ceoName || 'The founder';
     },
 
     updateCeo(dt) {
@@ -167,7 +226,23 @@
         this.stats.ceoCrisisMs += dt * 1000;
       }
 
-      this.stats.ceoPeakState = Math.max(this.stats.ceoPeakState, this.ceoStateIndex);
+      // Milestone toasts — only on a genuinely NEW high-water mark for this
+      // run, never on every threshold crossing, so budget hovering right at
+      // a boundary can't spam repeated toasts back and forth. Crisis (0)
+      // and Bootstrapping (1, the starting tier) aren't "achievements" —
+      // Crisis gets its own toast where it's detected (see the negative-
+      // budget grace check above), Bootstrapping gets none.
+      const CEO_MILESTONE_TOASTS = {
+        2: "'s startup is starting to take off.",
+        3: "'s company looks properly established now.",
+        4: ' just became a certified Successful founder.',
+        5: ' has gone full Tycoon.'
+      };
+      const state = this.ceoStateIndex;
+      if (state > this.stats.ceoPeakState && CEO_MILESTONE_TOASTS[state]) {
+        window.Game.UI.showToast(this.ceoDisplayName + CEO_MILESTONE_TOASTS[state]);
+      }
+      this.stats.ceoPeakState = Math.max(this.stats.ceoPeakState, state);
     },
 
     bindInput() {
@@ -194,6 +269,11 @@
 
       const runTap = (x, y) => {
         const hit = this.hitTest(x, y);
+
+        if (hit && hit.type === 'ceo') {
+          this.useCeoAbility();
+          return;
+        }
 
         if (hit && hit.type === 'tower') {
           this.pendingHireDesk = null;
@@ -419,6 +499,12 @@
         const dx = (x - cx) / RX, dy = (y - (cy - LIFT)) / RY;
         return dx * dx + dy * dy < 1;
       };
+
+      // The CEO is checked first — clicking him triggers useCeoAbility()
+      // directly (see runTap below), the deliberate replacement for a HUD
+      // button so the ability feels like it comes from him, not a menu.
+      const anchor = PATH.ceoAnchor;
+      if (inSpriteHitbox(anchor.x, anchor.y)) return { type: 'ceo' };
 
       const hitTower = this.towers.find(t => inSpriteHitbox(t.x, t.y));
       if (hitTower) return { type: 'tower', tower: hitTower };
@@ -831,8 +917,10 @@
       // countdown starts/ticks/ends — one clean checkpoint instead of three
       // scattered ones that could each trigger it independently.
       if (this.budget < 0) {
+        const justWentNegative = this.negativeBudgetTimer <= 0;
         this.negativeBudgetTimer = this.negativeBudgetTimer > 0 ? this.negativeBudgetTimer - dt : CFG.NEGATIVE_BUDGET_GRACE;
         if (this.negativeBudgetTimer <= 0) { this.gameOver('bankrupt'); return; }
+        if (justWentNegative) window.Game.UI.showToast(`${this.ceoDisplayName}: we need to talk about runway.`);
       } else if (this.negativeBudgetTimer > 0) {
         this.negativeBudgetTimer = 0;
         window.Game.UI.showToast('Back in the black — crisis averted.');
@@ -1029,8 +1117,9 @@
         ctx.lineWidth = 6;
         ctx.strokeStyle = 'rgba(0,0,0,0.6)';
         ctx.strokeText(fx.text, 0, 0);
-        ctx.shadowColor = '#39ff88'; ctx.shadowBlur = 28;
-        ctx.fillStyle = '#39ff88';
+        const color = fx.color || '#39ff88';
+        ctx.shadowColor = color; ctx.shadowBlur = 28;
+        ctx.fillStyle = color;
         ctx.fillText(fx.text, 0, 0);
         ctx.restore();
       }

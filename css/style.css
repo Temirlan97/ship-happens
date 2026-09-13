@@ -161,7 +161,6 @@ html, body {
 .icon-btn-danger:hover { background: rgba(255,93,93,0.15); border-color: var(--danger); }
 .icon-btn:disabled { background: #1c2434; color: #5c6a85; cursor: not-allowed; border-color: #2a3448; }
 .icon-btn:disabled:hover { background: #1c2434; }
-#ceoAbilityValue { margin-left: 4px; font-weight: 700; opacity: 0.85; }
 
 /* ---- top-center: logo + funding-stage timeline, shrunk into a pill ---- */
 #hudTopCenter {
@@ -303,31 +302,33 @@ html, body {
   align-items: center;
   text-align: center;
 }
-.menu-main-card h1 { margin: 0 0 20px; }
-.ceo-gender-toggle {
+.menu-main-card h1 { margin: 0 0 28px; }
+
+/* One-time pre-game picker (see Core.confirmIdentity) — textless portrait
+   buttons, no active/selected state needed since clicking one immediately
+   confirms and starts the game rather than toggling a persistent choice. */
+#menuNamePickPanel { align-items: center; }
+#menuNamePickPanel .dialog-input { width: 100%; margin: 14px 0 20px; text-align: center; }
+.ceo-portrait-row {
   display: flex;
-  gap: 8px;
+  gap: 14px;
   width: 100%;
-  margin-bottom: 22px;
 }
-.gender-btn {
+.ceo-portrait-btn {
   flex: 1;
   background: var(--panel-light);
-  border: 1px solid var(--border);
-  color: var(--dim);
-  font-weight: 700;
-  font-size: 12px;
-  padding: 8px 6px;
-  border-radius: 8px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
 }
-.gender-btn:hover { border-color: #3a4c6b; }
-.gender-btn.active {
-  border-color: var(--accent-green);
-  color: var(--accent-green);
-  background: rgba(57,255,136,0.1);
-}
+.ceo-portrait-btn img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ceo-portrait-btn:hover { border-color: var(--accent-green); background: #24304a; transform: translateY(-2px); }
 .menu-actions {
   display: flex;
   flex-direction: column;

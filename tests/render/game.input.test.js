@@ -100,6 +100,56 @@ describe('pointerdown routing', () => {
   });
 });
 
+describe('clicking the CEO', () => {
+  it('triggers the All-Hands ability — the deliberate replacement for a HUD button', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+  });
+
+  it('does nothing while budget is negative (the same guard useCeoAbility always had)', () => {
+    Core.budget = -1;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+
+  // hitTest's screen-space hitbox is RX=32,RY=55,LIFT=30 (see js/game.js),
+  // so it reaches at most ~55+30=85px from a sprite's ground anchor in any
+  // direction. Measured (at this file's 1600x1000/zoom-1 layout) the
+  // closest DESK_POSITIONS cell center to PATH.ceoAnchor is ~204px away —
+  // comfortably more than double the hitbox's max reach, so there's no
+  // realistic overlap. These two tests pin that down as a real behavioral
+  // guarantee rather than just a one-off distance measurement.
+  it('clicking the CEO does not register as the nearest desk, even at the desk closest to him', () => {
+    Core.budget = 1000;
+    let nearest = null, minD = Infinity;
+    for (const d of CFG.DESK_POSITIONS) {
+      const c = PATH.cellCenter(d.col, d.row);
+      const dist = Math.hypot(c.x - PATH.ceoAnchor.x, c.y - PATH.ceoAnchor.y);
+      if (dist < minD) { minD = dist; nearest = d; }
+    }
+    expect(minD).toBeGreaterThan(100); // sanity-check the safety margin itself
+    click(PATH.ceoAnchor.x, PATH.ceoAnchor.y);
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+    expect(Core.pendingHireDesk).not.toEqual(nearest);
+  });
+
+  it('clicking the desk nearest the CEO opens its hire panel, not the ability', () => {
+    let nearest = null, minD = Infinity;
+    for (const d of CFG.DESK_POSITIONS) {
+      const c = PATH.cellCenter(d.col, d.row);
+      const dist = Math.hypot(c.x - PATH.ceoAnchor.x, c.y - PATH.ceoAnchor.y);
+      if (dist < minD) { minD = dist; nearest = d; }
+    }
+    const c = PATH.cellCenter(nearest.col, nearest.row);
+    click(c.x, c.y);
+    expect(Core.pendingHireDesk).toEqual(nearest);
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+});
+
 describe('pointermove / pointerleave (hover + cursor)', () => {
   it('sets the cursor to pointer and hoverTarget when over an empty desk', () => {
     const d = CFG.DESK_POSITIONS[0];

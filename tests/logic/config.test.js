@@ -95,6 +95,18 @@ describe('CEO config shape', () => {
     expect(CFG.CEO.abilityBuffFireRateMult).toBeLessThan(1);
     expect(CFG.CEO.abilityBuffFireRateMult).toBeGreaterThan(0);
   });
+
+  it('has 4 strictly increasing wealth thresholds separating the 5 non-Crisis tiers', () => {
+    expect(CFG.CEO.wealthThresholds).toHaveLength(4);
+    for (let i = 1; i < CFG.CEO.wealthThresholds.length; i++) {
+      expect(CFG.CEO.wealthThresholds[i]).toBeGreaterThan(CFG.CEO.wealthThresholds[i - 1]);
+    }
+  });
+
+  it('the top two wealth thresholds match the first two acquisition milestones', () => {
+    expect(CFG.CEO.wealthThresholds[2]).toBe(CFG.ACQUISITION_MILESTONES[0]);
+    expect(CFG.CEO.wealthThresholds[3]).toBe(CFG.ACQUISITION_MILESTONES[1]);
+  });
 });
 
 describe('window.Game.fmt', () => {

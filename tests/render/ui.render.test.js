@@ -23,7 +23,8 @@ describe('UI.init', () => {
     expect(el('menuLeaderboardPanel').classList.contains('hidden')).toBe(true);
   });
 
-  it('wires the Play button to Core.start()', () => {
+  it('wires the Play button to Core.start(), once the one-time identity picker is already done', () => {
+    Core.ceoOnboarded = true;
     el('menuPlayBtn').click();
     expect(Core.state).toBe('playing');
   });
@@ -594,45 +595,59 @@ describe('UI.renderLeaderboard', () => {
   });
 });
 
-describe('UI.init wires the CEO ability button and gender toggle', () => {
-  it('clicking the ability button calls through to Core.useCeoAbility without throwing', () => {
-    Core.state = 'playing';
-    Core.budget = 999999;
-    expect(() => el('ceoAbilityBtn').click()).not.toThrow();
-    expect(Core.stats.ceoAbilityUses).toBe(1);
+describe('UI.init wires the pre-game name/gender picker', () => {
+  it('Play shows the picker instead of starting, when not yet onboarded', () => {
+    Core.ceoOnboarded = false;
+    el('menuPlayBtn').click();
+    expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(false);
+    expect(el('menuMain').classList.contains('hidden')).toBe(true);
+    expect(Core.state).not.toBe('playing');
   });
 
-  it('clicking a gender button updates Core.ceoGender and the toggle highlight', () => {
-    el('ceoGenderFemaleBtn').click();
+  it('Play starts the game directly once already onboarded', () => {
+    Core.ceoOnboarded = true;
+    el('menuPlayBtn').click();
+    expect(Core.state).toBe('playing');
+  });
+
+  it('clicking a portrait confirms identity and starts the game', () => {
+    Core.ceoOnboarded = false;
+    el('menuPlayBtn').click();
+    el('ceoNameInput').value = 'Ada';
+    el('ceoPortraitFemaleBtn').click();
     expect(Core.ceoGender).toBe('female');
-    expect(el('ceoGenderFemaleBtn').classList.contains('active')).toBe(true);
-    expect(el('ceoGenderMaleBtn').classList.contains('active')).toBe(false);
+    expect(Core.ceoName).toBe('Ada');
+    expect(Core.ceoOnboarded).toBe(true);
+    expect(Core.state).toBe('playing');
+  });
 
-    el('ceoGenderMaleBtn').click();
+  it('pressing Enter in the name field confirms with the current gender', () => {
+    Core.ceoOnboarded = false;
+    Core.ceoGender = 'male';
+    el('menuPlayBtn').click();
+    el('ceoNameInput').value = 'Sam';
+    el('ceoNameInput').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(Core.ceoGender).toBe('male');
-    expect(el('ceoGenderMaleBtn').classList.contains('active')).toBe(true);
-    expect(el('ceoGenderFemaleBtn').classList.contains('active')).toBe(false);
-  });
-});
-
-describe('UI.updateHUD reflects CEO ability state', () => {
-  it('disables the ability button and shows no countdown while budget is negative', () => {
-    Core.budget = -1;
-    UI.updateHUD();
-    expect(el('ceoAbilityBtn').disabled).toBe(true);
-    expect(el('ceoAbilityValue').textContent).toBe('');
+    expect(Core.ceoName).toBe('Sam');
+    expect(Core.state).toBe('playing');
   });
 
-  it('shows a countdown while on cooldown, and "Ready" once it clears', () => {
-    Core.budget = 1000;
-    Core.ceoAbilityCooldown = 4200;
-    UI.updateHUD();
-    expect(el('ceoAbilityBtn').disabled).toBe(true);
-    expect(el('ceoAbilityValue').textContent).toBe('5s');
+  it('resuming from pause always just resumes, regardless of onboarded status (the paused branch short-circuits before the onboarding check)', () => {
+    Core.confirmIdentity('Ada', 'female');
+    Core.state = 'paused';
+    UI.showScreen('menu');
+    el('menuPlayBtn').click();
+    expect(Core.state).toBe('playing');
+    expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(true);
+  });
 
-    Core.ceoAbilityCooldown = 0;
-    UI.updateHUD();
-    expect(el('ceoAbilityBtn').disabled).toBe(false);
-    expect(el('ceoAbilityValue').textContent).toBe('Ready');
+  it('the picker has a way back to the main menu instead of trapping a first-time player', () => {
+    Core.ceoOnboarded = false;
+    el('menuPlayBtn').click();
+    expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(false);
+    el('namePickBackBtn').click();
+    expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(true);
+    expect(el('menuMain').classList.contains('hidden')).toBe(false);
+    expect(Core.state).not.toBe('playing');
   });
 });

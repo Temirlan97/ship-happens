@@ -39,10 +39,8 @@
   async function loadStats() {
     const res = await authedFetch('/api/admin/stats');
     if (!res.ok) return;
-    const { totals, bySprint } = await res.json();
-    const grid = el('statsGrid');
-    grid.innerHTML = '';
-    const boxes = [
+    const { totals, bySprint, ceoByGender } = await res.json();
+    renderStatBoxes(el('statsGrid'), [
       ['Total runs', totals.totalRuns],
       ['Finished runs', totals.finishedRuns],
       ['Suspicious runs', totals.suspiciousRuns],
@@ -51,7 +49,17 @@
       ['Avg sprint reached', Math.round(totals.avgSprintReached * 10) / 10],
       ['Best sprint ever', totals.bestSprintEver],
       ['Distinct sprint counts', bySprint.length]
-    ];
+    ]);
+
+    const genderLabel = { male: 'Male CEO', female: 'Female CEO' };
+    renderStatBoxes(el('ceoGenderStats'), (ceoByGender || []).map((row) => [
+      `${genderLabel[row.gender] || row.gender} avg sprint (${row.n} runs)`,
+      Math.round(row.avgSprintReached * 10) / 10
+    ]));
+  }
+
+  function renderStatBoxes(grid, boxes) {
+    grid.innerHTML = '';
     boxes.forEach(([label, value]) => {
       const box = document.createElement('div');
       box.className = 'stat-box';

@@ -42,6 +42,17 @@ describe('PATH.drawBackground — CEO ability ready vs on cooldown/crisis', () =
   });
 });
 
+describe('PATH.drawBackground — CEO prop across every wealth tier', () => {
+  it('draws every one of the 6 backdrop-prop branches without throwing', () => {
+    const t = Game.Config.CEO.wealthThresholds;
+    const budgets = [-1, 0, t[0], t[1], t[2], t[3]]; // Crisis..Tycoon
+    for (const b of budgets) {
+      Game.Core.budget = b;
+      expect(() => PATH.drawBackground(ctx)).not.toThrow();
+    }
+  });
+});
+
 describe('PATH.drawBackground — real tile/prop art loaded', () => {
   beforeEach(async () => {
     installFakeImage();
