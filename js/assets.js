@@ -81,6 +81,14 @@
     character_ceo_female_4: 'assets/characters/ceo_female_4.png',
     character_ceo_female_5: 'assets/characters/ceo_female_5.png',
     character_ceo_female_6: 'assets/characters/ceo_female_6.png',
+    // The CEO's backdrop prop (see path.js's drawCeoProp) — one per wealth
+    // tier, same index mapping as his portrait (0=Crisis..5=Tycoon).
+    prop_ceo_trash: 'assets/tiles/prop_ceo_trash.png',
+    prop_ceo_ramen: 'assets/tiles/prop_ceo_ramen.png',
+    prop_ceo_coffee: 'assets/tiles/prop_ceo_coffee.png',
+    prop_ceo_plant: 'assets/tiles/prop_ceo_plant.png',
+    prop_ceo_trophy: 'assets/tiles/prop_ceo_trophy.png',
+    prop_ceo_coins: 'assets/tiles/prop_ceo_coins.png',
     enemy_bug: 'assets/enemies/bug.png',
     enemy_competitor: 'assets/enemies/competitor.png'
   };

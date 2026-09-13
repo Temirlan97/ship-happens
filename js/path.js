@@ -486,11 +486,20 @@
   }
 
   // A tiny bit of set-dressing beside his feet that upgrades with wealth
-  // tier — purely decorative, deliberately simple procedural shapes rather
-  // than more generated art for a one-off detail. Drawn behind everything
-  // else so the sway/idle animation above never overlaps it.
+  // tier. Real art per tier (assets/tiles/prop_ceo_*.png), procedural
+  // shapes as a fallback if a sprite fails to load — same split as
+  // drawCeo's own portrait. Drawn behind everything else so the sway/idle
+  // animation above never overlaps it.
+  const CEO_PROP_KEYS = ['prop_ceo_trash', 'prop_ceo_ramen', 'prop_ceo_coffee', 'prop_ceo_plant', 'prop_ceo_trophy', 'prop_ceo_coins'];
+
   function drawCeoProp(ctx, px, py, stateIndex) {
     const x = px + 30, y = py + 14;
+    const sprite = window.Game.Assets.get(CEO_PROP_KEYS[stateIndex]);
+    if (sprite) {
+      const h = 55, w = h * (sprite.naturalWidth / sprite.naturalHeight);
+      ctx.drawImage(sprite, x - w / 2, y - h + 14, w, h);
+      return;
+    }
     ctx.save();
     if (stateIndex === 0) { // Crisis — a crumpled-paper trash pile
       ctx.fillStyle = '#5a5f6b';
