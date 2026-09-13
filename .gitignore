@@ -4,3 +4,4 @@ coverage/
 CLAUDE.md
 .wrangler/
 .dev.vars
+version.json

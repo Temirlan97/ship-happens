@@ -9,7 +9,7 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "pages:dev": "wrangler pages dev . --port 8788",
-    "deploy": "wrangler pages deploy . --project-name=ship-happens"
+    "deploy": "node scripts/gen-version.js && wrangler pages deploy . --project-name=ship-happens"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^5.0.0",

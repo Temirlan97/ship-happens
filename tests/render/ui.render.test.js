@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { loadGame } from '../helpers/loadGame.js';
 
 let Game, CFG, UI, Core;
@@ -510,6 +510,9 @@ describe('UI.showNameDialog / hideNameDialog', () => {
 describe('the name dialog submit flow (via the real button click)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('shows an inline error and does not call the server for an empty name', () => {

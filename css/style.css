@@ -836,6 +836,23 @@ html, body {
 .toast.hidden { display: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* Deploy-verification marker (js/ui.js fetches version.json with
+   cache: 'no-store' so this can't itself go stale) — deliberately tiny and
+   inert, just enough to confirm a fresh deploy landed instead of a cached
+   old build. */
+.version-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  z-index: 5;
+  font-size: 9px;
+  font-family: monospace;
+  color: var(--dim);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ---- small screens (phones): the board itself now auto-fits via the
    camera (js/camera.js), but the fixed-size HUD chrome still needs to
    shrink so it doesn't overlap itself on a narrow viewport ---- */

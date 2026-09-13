@@ -47,6 +47,26 @@
     renderTimeline();
     showScreen('menu');
     updateHUD();
+    loadVersionBadge();
+  }
+
+  // cache: 'no-store' bypasses the browser HTTP cache outright — unlike
+  // every js/*.js or css file, this can't rely on a ?v=N bump (version.json
+  // is regenerated fresh on every deploy, see scripts/gen-version.js), so it
+  // needs to actually skip the cache rather than just bust a stale URL.
+  // 404s locally (e.g. opening index.html without running the deploy
+  // script) — that's fine, the badge just stays blank.
+  function loadVersionBadge() {
+    if (typeof fetch !== 'function') return; // not available in the test harness's vm context
+    fetch('version.json', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const built = new Date(data.builtAt);
+        const stamp = isNaN(built) ? '' : built.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        el('versionBadge').textContent = `${data.commit}${stamp ? ' · ' + stamp : ''}`;
+      })
+      .catch(() => {});
   }
 
   // The funding-round roadmap: a static track of stage dots built once, with
