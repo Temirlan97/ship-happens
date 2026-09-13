@@ -22,6 +22,26 @@ describe('PATH.drawBackground — no art loaded (flat-fill + procedural fallback
   });
 });
 
+describe('PATH.drawBackground — CEO ability ready vs on cooldown/crisis', () => {
+  it('draws the ready-to-fire pulse when the ability is off cooldown and budget is non-negative', () => {
+    Game.Core.ceoAbilityCooldown = 0;
+    Game.Core.budget = 1000;
+    expect(() => PATH.drawBackground(ctx)).not.toThrow();
+  });
+
+  it('skips the pulse while on cooldown', () => {
+    Game.Core.ceoAbilityCooldown = 5000;
+    Game.Core.budget = 1000;
+    expect(() => PATH.drawBackground(ctx)).not.toThrow();
+  });
+
+  it('skips the pulse while budget is negative, even off cooldown', () => {
+    Game.Core.ceoAbilityCooldown = 0;
+    Game.Core.budget = -1;
+    expect(() => PATH.drawBackground(ctx)).not.toThrow();
+  });
+});
+
 describe('PATH.drawBackground — real tile/prop art loaded', () => {
   beforeEach(async () => {
     installFakeImage();

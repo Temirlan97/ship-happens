@@ -27,6 +27,19 @@
   function saveBestSprint(n) {
     try { localStorage.setItem('ship_happens_best_sprint', String(n)); } catch (e) { /* file:// storage can be unavailable */ }
   }
+  // A preference, not run state — persists across restarts, unlike everything
+  // else the CEO tracks. Defaults to a coin flip on first-ever load rather
+  // than always defaulting to one gender.
+  function loadCeoGender() {
+    try {
+      const v = localStorage.getItem('ship_happens_ceo_gender');
+      if (v === 'male' || v === 'female') return v;
+    } catch (e) { /* file:// storage can be unavailable */ }
+    return Math.random() < 0.5 ? 'male' : 'female';
+  }
+  function saveCeoGender(g) {
+    try { localStorage.setItem('ship_happens_ceo_gender', g); } catch (e) { /* file:// storage can be unavailable */ }
+  }
   const Core = {
     state: 'start', // start | playing | paused | gameover
     budget: CFG.START_BUDGET,
@@ -45,7 +58,17 @@
     // Cumulative totals for the end-of-run stats card — every source of
     // Budget gain/loss during a run feeds exactly one of these, so the card
     // adds up to a real receipt of the run rather than a vibes-based summary.
-    stats: { income: 0, salaries: 0, lost: 0, kills: 0 },
+    // The ceo* fields aren't shown on that card (or anywhere) yet — they
+    // ride along in the same payload to functions/api/runs/finish.js purely
+    // as telemetry for later.
+    stats: { income: 0, salaries: 0, lost: 0, kills: 0, ceoGender: null, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0 },
+    // CEO run state — cooldown/buff timers and per-run counters reset on
+    // restart(); ceoGender does not, it's a persisted preference (see
+    // loadCeoGender above), set here once at boot.
+    ceoGender: loadCeoGender(),
+    ceoAbilityCooldown: 0,
+    ceoBuffTimer: 0,
+    ceoIncomeTimer: 0,
     // Seconds remaining to claw Budget back above zero before the run ends —
     // 0 means "not currently in the red." Set the moment Budget dips below
     // zero, cleared the moment it recovers; see the check at the end of update().
@@ -68,9 +91,83 @@
 
     init() {
       Object.keys(CFG.TOWER_TYPES).forEach(t => (this.cardCooldowns[t] = 0));
+      this.stats.ceoGender = this.ceoGender;
       this.bindInput();
       window.Game.UI.init(this);
       requestAnimationFrame(this.loop.bind(this));
+    },
+
+    setCeoGender(gender) {
+      if (gender !== 'male' && gender !== 'female') return;
+      this.ceoGender = gender;
+      this.stats.ceoGender = gender;
+      saveCeoGender(gender);
+      window.Game.UI.updateGenderToggle();
+    },
+
+    // 0-5, driven entirely by state Core already tracks for other reasons —
+    // no new economy thresholds. Crisis overrides everything else; above
+    // that, funding stage carries the early/mid tiers and acquisition
+    // milestones carry the top ones, since by the time a run is crossing
+    // those it's already well past what funding stage alone communicates.
+    get ceoStateIndex() {
+      if (this.budget < 0) return 0; // Crisis
+      const stageKey = this.waves.stage.key;
+      if (this.acquisitionMilestoneIndex >= 2) return 5; // Tycoon
+      if (this.acquisitionMilestoneIndex === 1) return 4; // Successful
+      if (stageKey === 'preseed') return 1; // Bootstrapping
+      if (stageKey === 'seed' || stageKey === 'seriesA') return 2; // Growing
+      return 3; // Established (seriesB/seriesC/scaleup, no milestone yet)
+    },
+
+    // "Paydays of runway" the current Budget covers at the current burn
+    // rate, 0-1 — the single number driving both the Product kiosk's
+    // health-tint glow (see path.js's drawProduct) and the CEO's combat
+    // strength, so "the company looks healthy" and "the company defends
+    // itself well" are always the same fact, not two separately-tuned ones.
+    get runwayRatio() {
+      const payroll = this.projectedPayroll;
+      return payroll > 0 ? Math.min(1, Math.max(0, this.budget / (payroll * 3))) : 1;
+    },
+
+    useCeoAbility() {
+      if (this.state !== 'playing') return;
+      if (this.budget < 0 || this.ceoAbilityCooldown > 0) return;
+      const anchor = PATH.ceoAnchor;
+      const ratio = this.runwayRatio;
+      const damage = CFG.CEO.abilityBaseDamage * (0.4 + 0.6 * ratio);
+      for (const e of this.enemies) {
+        if (e.dead || e.reachedEnd) continue;
+        if (Math.hypot(e.x - anchor.x, e.y - anchor.y) <= CFG.CEO.abilityRadius) e.takeDamage(damage);
+      }
+      this.ceoBuffTimer = CFG.CEO.abilityBuffDurationMs;
+      this.ceoAbilityCooldown = CFG.CEO.abilityCooldownMaxMs - (CFG.CEO.abilityCooldownMaxMs - CFG.CEO.abilityCooldownMinMs) * ratio;
+      this.stats.ceoAbilityUses++;
+      window.Game.Audio.fundingRound();
+      this.spawnParticles(anchor.x, anchor.y, '#f2c94c', 14, 90);
+      window.Game.UI.showToast('All-Hands: the team rallies!');
+    },
+
+    updateCeo(dt) {
+      if (this.ceoAbilityCooldown > 0) this.ceoAbilityCooldown = Math.max(0, this.ceoAbilityCooldown - dt * 1000);
+      if (this.ceoBuffTimer > 0) this.ceoBuffTimer = Math.max(0, this.ceoBuffTimer - dt * 1000);
+
+      if (this.budget >= 0) {
+        this.ceoIncomeTimer += dt * 1000;
+        if (this.ceoIncomeTimer >= CFG.CEO.incomeIntervalMs) {
+          this.ceoIncomeTimer -= CFG.CEO.incomeIntervalMs;
+          const amount = CFG.CEO.incomeByState[this.ceoStateIndex];
+          if (amount > 0) {
+            const anchor = PATH.ceoAnchor;
+            this.addBudget(amount, anchor.x, anchor.y - 26);
+            this.effects.push({ type: 'floatText', x: anchor.x, y: anchor.y - 50, life: 1.1, maxLife: 1.1, text: '+' + window.Game.fmt(amount), color: '#5fe37f' });
+          }
+        }
+      } else {
+        this.stats.ceoCrisisMs += dt * 1000;
+      }
+
+      this.stats.ceoPeakState = Math.max(this.stats.ceoPeakState, this.ceoStateIndex);
     },
 
     bindInput() {
@@ -440,6 +537,9 @@
         if (src.type !== 'coffee' || src.stunTimer > 0) continue;
         best = Math.min(best, src.auraRateMultValue);
       }
+      // The CEO's "All-Hands" ability folds into the same hook every tower
+      // already reads for the coffee machine's aura — no Tower changes needed.
+      if (this.ceoBuffTimer > 0) best = Math.min(best, CFG.CEO.abilityBuffFireRateMult);
       return best;
     },
 
@@ -624,7 +724,10 @@
       this.acquisitionMilestoneIndex = 0;
       this.pendingAcquisitionPrice = null;
       this.gameOverReason = 'bankrupt';
-      this.stats = { income: 0, salaries: 0, lost: 0, kills: 0 };
+      this.stats = { income: 0, salaries: 0, lost: 0, kills: 0, ceoGender: this.ceoGender, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0 };
+      this.ceoAbilityCooldown = 0;
+      this.ceoBuffTimer = 0;
+      this.ceoIncomeTimer = 0;
       Object.keys(this.cardCooldowns).forEach(k => (this.cardCooldowns[k] = 0));
       this.waves = new WaveManager();
       this.state = 'playing';
@@ -734,6 +837,8 @@
         this.negativeBudgetTimer = 0;
         window.Game.UI.showToast('Back in the black — crisis averted.');
       }
+
+      this.updateCeo(dt);
 
       // Same deferred-to-end-of-frame reasoning as the negative-budget check
       // above. Uses an ever-incrementing index (never re-derived from

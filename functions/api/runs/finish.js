@@ -16,6 +16,13 @@ export async function onRequestPost({ request, env }) {
   // record" rather than being coerced into a number that could throw off
   // the budget-ceiling plausibility check or the ranking query below.
   const claimedBudget = Number.isFinite(budget) ? budget : null;
+  // Pure telemetry, not displayed anywhere yet and not involved in the
+  // plausibility check below — same defensive typing as the other claimed_*
+  // fields regardless.
+  const ceoGender = stats?.ceoGender === 'male' || stats?.ceoGender === 'female' ? stats.ceoGender : null;
+  const ceoAbilityUses = Number.isFinite(stats?.ceoAbilityUses) ? stats.ceoAbilityUses : null;
+  const ceoCrisisMs = Number.isFinite(stats?.ceoCrisisMs) ? Math.round(stats.ceoCrisisMs) : null;
+  const ceoPeakState = Number.isFinite(stats?.ceoPeakState) ? stats.ceoPeakState : null;
 
   const row = await env.DB.prepare(
     'SELECT created_at, checkpoint_count, finished_at FROM runs WHERE session_secret = ?'
@@ -47,12 +54,17 @@ export async function onRequestPost({ request, env }) {
       claimed_kills = ?,
       suspicious = ?,
       suspicious_reason = ?,
-      ending_reason = ?
+      ending_reason = ?,
+      ceo_gender = ?,
+      ceo_ability_uses = ?,
+      ceo_crisis_ms = ?,
+      ceo_peak_state = ?
     WHERE session_secret = ?`
   ).bind(
     now, Math.round(elapsedSeconds), claimedSprint, claimedBudget,
     stats?.income ?? null, stats?.salaries ?? null, stats?.lost ?? null, stats?.kills ?? null,
     suspicious ? 1 : 0, reasons.join(',') || null, endingReason,
+    ceoGender, ceoAbilityUses, ceoCrisisMs, ceoPeakState,
     secret
   ).run();
 

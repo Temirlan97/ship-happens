@@ -593,3 +593,46 @@ describe('UI.renderLeaderboard', () => {
     expect(rows[0].querySelector('.leaderboard-sprint').textContent).toBe('Sprint 12');
   });
 });
+
+describe('UI.init wires the CEO ability button and gender toggle', () => {
+  it('clicking the ability button calls through to Core.useCeoAbility without throwing', () => {
+    Core.state = 'playing';
+    Core.budget = 999999;
+    expect(() => el('ceoAbilityBtn').click()).not.toThrow();
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+  });
+
+  it('clicking a gender button updates Core.ceoGender and the toggle highlight', () => {
+    el('ceoGenderFemaleBtn').click();
+    expect(Core.ceoGender).toBe('female');
+    expect(el('ceoGenderFemaleBtn').classList.contains('active')).toBe(true);
+    expect(el('ceoGenderMaleBtn').classList.contains('active')).toBe(false);
+
+    el('ceoGenderMaleBtn').click();
+    expect(Core.ceoGender).toBe('male');
+    expect(el('ceoGenderMaleBtn').classList.contains('active')).toBe(true);
+    expect(el('ceoGenderFemaleBtn').classList.contains('active')).toBe(false);
+  });
+});
+
+describe('UI.updateHUD reflects CEO ability state', () => {
+  it('disables the ability button and shows no countdown while budget is negative', () => {
+    Core.budget = -1;
+    UI.updateHUD();
+    expect(el('ceoAbilityBtn').disabled).toBe(true);
+    expect(el('ceoAbilityValue').textContent).toBe('');
+  });
+
+  it('shows a countdown while on cooldown, and "Ready" once it clears', () => {
+    Core.budget = 1000;
+    Core.ceoAbilityCooldown = 4200;
+    UI.updateHUD();
+    expect(el('ceoAbilityBtn').disabled).toBe(true);
+    expect(el('ceoAbilityValue').textContent).toBe('5s');
+
+    Core.ceoAbilityCooldown = 0;
+    UI.updateHUD();
+    expect(el('ceoAbilityBtn').disabled).toBe(false);
+    expect(el('ceoAbilityValue').textContent).toBe('Ready');
+  });
+});

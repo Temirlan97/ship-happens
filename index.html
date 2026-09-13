@@ -20,7 +20,7 @@
 <meta name="twitter:title" content="Ship Happens">
 <meta name="twitter:description" content="A startup-survival tower defense game — hire your team, defend Production from bugs and incidents, and don't run out of money.">
 <link rel="icon" type="image/png" href="assets/icons/favicon.png">
-<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 <div id="game-root">
@@ -39,6 +39,7 @@
   <div id="hudTopRight" class="hud-badge">
     <div id="hudControls">
       <button id="nextSprintBtn" class="icon-btn">Skip Wait</button>
+      <button id="ceoAbilityBtn" class="icon-btn">All-Hands<span id="ceoAbilityValue"></span></button>
       <button id="speedBtn" class="icon-btn speed-btn"><span id="speedValue">1x</span></button>
       <button id="pauseBtn" class="icon-btn">Pause</button>
       <button id="muteBtn" class="icon-btn">Sound: On</button>
@@ -114,6 +115,10 @@
   <div id="screen-menu" class="screen">
     <div id="menuMain" class="menu-panel menu-card menu-main-card">
       <h1>Ship Happens</h1>
+      <div id="ceoGenderToggle" class="ceo-gender-toggle">
+        <button id="ceoGenderMaleBtn" class="gender-btn">Male CEO</button>
+        <button id="ceoGenderFemaleBtn" class="gender-btn">Female CEO</button>
+      </div>
       <div class="menu-actions">
         <button id="menuPlayBtn" class="primary-btn">Play</button>
         <button id="menuInstructionsBtn" class="menu-btn">Instructions</button>
@@ -278,17 +283,17 @@
      other custom header applies, this one doesn't), so a stale browser
      cache is otherwise the only thing serving js/css after a deploy.
      BUMP THIS NUMBER whenever any js/*.js or css/style.css file changes. -->
-<script src="js/config.js?v=1"></script>
-<script src="js/assets.js?v=1"></script>
+<script src="js/config.js?v=2"></script>
+<script src="js/assets.js?v=2"></script>
 <script src="js/audio.js?v=1"></script>
-<script src="js/path.js?v=1"></script>
+<script src="js/path.js?v=2"></script>
 <script src="js/camera.js?v=1"></script>
 <script src="js/entities.js?v=1"></script>
 <script src="js/waves.js?v=1"></script>
 <script src="js/leaderboard.js?v=1"></script>
 <script src="js/feedback.js?v=1"></script>
-<script src="js/game.js?v=1"></script>
-<script src="js/ui.js?v=2"></script>
+<script src="js/game.js?v=2"></script>
+<script src="js/ui.js?v=3"></script>
 <script src="js/main.js?v=1"></script>
 </body>
 </html>

@@ -265,6 +265,7 @@
 
     drawIntakeBoard(ctx, t);
     drawProduct(ctx, t);
+    drawCeo(ctx, t);
   }
 
   // ---- "Backlog" spawn point: a cork board with three swaying ticket notes.
@@ -322,12 +323,10 @@
   // drawn behind the sprite either way so it works for both paths. ----
   function drawProduct(ctx, t) {
     const end = waypoints[waypoints.length - 1];
-    const Core = window.Game.Core;
-    let ratio = 1;
-    if (Core) {
-      const payroll = Core.projectedPayroll;
-      ratio = payroll > 0 ? Math.min(1, Math.max(0, Core.budget / (payroll * 3))) : 1;
-    }
+    // Every animated draw in this file already assumes Core exists (see the
+    // unconditional Core.gameTime read at the top of drawBackground) — no
+    // extra guard needed here either.
+    const ratio = window.Game.Core.runwayRatio;
     const healthColor = ratio > 0.5 ? '#39c97a' : (ratio > 0.2 ? '#f2a340' : '#e0503c');
     const px = end.x + 14, py = end.y;
 
@@ -406,11 +405,69 @@
     ctx.restore();
   }
 
+  // Opposite side from the kiosk's own `end.x + 14` offset (see drawProduct)
+  // so the two never overlap. Exported so game.js's ability/income logic
+  // can center on the exact same point this draws at, instead of a second
+  // hand-tuned offset drifting out of sync with this one.
+  function ceoAnchor() {
+    const end = waypoints[waypoints.length - 1];
+    return { x: end.x - 46, y: end.y };
+  }
+
+  // ---- The CEO: a free, always-present, static fixture — portrait swaps
+  // across 6 states by Core.ceoStateIndex, same real-art-or-procedural-
+  // fallback split as drawProduct. The state/mechanics live on Core; this
+  // is rendering only. ----
+  function drawCeo(ctx, t) {
+    const Core = window.Game.Core;
+    const { x: px, y: py } = ceoAnchor();
+    const stateIndex = Core.ceoStateIndex;
+    const ready = Core.ceoAbilityCooldown <= 0 && Core.budget >= 0;
+    const tierColors = ['#e0503c', '#a9a9a9', '#5b9dff', '#3a4150', '#f2c94c', '#c9a876'];
+    const accent = tierColors[stateIndex];
+
+    if (ready) {
+      ctx.save();
+      const pulse = 0.5 + Math.sin(t * 3) * 0.5;
+      ctx.shadowColor = accent; ctx.shadowBlur = 20 * pulse;
+      ctx.strokeStyle = accent; ctx.globalAlpha = 0.6;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(px, py, 26, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    const sprite = window.Game.Assets.get('character_ceo_' + Core.ceoGender + '_' + (stateIndex + 1));
+    if (sprite) {
+      const h = 110, w = h * (sprite.naturalWidth / sprite.naturalHeight);
+      ctx.drawImage(sprite, px - w / 2, py - h + 16, w, h);
+      return;
+    }
+
+    // Procedural placeholder — a simple accent-colored badge, not an
+    // attempt at a full figure. Only used if a specific sprite key fails
+    // to load; the real art (assets/characters/ceo_<gender>_<1-6>.png) is
+    // wired into assets.js's MANIFEST and should always be present.
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.beginPath(); ctx.ellipse(0, 14, 20, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = accent;
+    ctx.beginPath(); ctx.arc(0, -20, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1a2332';
+    ctx.fillRect(-14, -2, 28, 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('CEO', 0, -17);
+    ctx.restore();
+  }
+
   window.Game.Path = {
     init, relayout, isBuildable, cellCenter, screenToCell, drawBackground, blocked,
     TILE_W, TILE_H,
     get waypoints() { return waypoints; },
     get BOARD_W() { return BOARD_W; },
-    get BOARD_H() { return BOARD_H; }
+    get BOARD_H() { return BOARD_H; },
+    get ceoAnchor() { return ceoAnchor(); }
   };
 })();

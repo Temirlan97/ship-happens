@@ -78,6 +78,25 @@ describe('Config shape', () => {
   });
 });
 
+describe('CEO config shape', () => {
+  it('has 6 income tiers (one per visual state) with Crisis paying nothing', () => {
+    expect(CFG.CEO.incomeByState).toHaveLength(6);
+    expect(CFG.CEO.incomeByState[0]).toBe(0);
+    for (let i = 1; i < CFG.CEO.incomeByState.length; i++) {
+      expect(CFG.CEO.incomeByState[i]).toBeGreaterThan(CFG.CEO.incomeByState[i - 1]);
+    }
+  });
+
+  it('a healthier runway ratio always means a shorter ability cooldown', () => {
+    expect(CFG.CEO.abilityCooldownMinMs).toBeLessThan(CFG.CEO.abilityCooldownMaxMs);
+  });
+
+  it('the fire-rate buff multiplier speeds towers up (a fraction, not a slowdown)', () => {
+    expect(CFG.CEO.abilityBuffFireRateMult).toBeLessThan(1);
+    expect(CFG.CEO.abilityBuffFireRateMult).toBeGreaterThan(0);
+  });
+});
+
 describe('window.Game.fmt', () => {
   it('formats a positive amount with a $ prefix and thousands separators', () => {
     expect(fmt(1234567)).toBe('$1,234,567');

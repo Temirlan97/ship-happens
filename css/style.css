@@ -159,6 +159,9 @@ html, body {
 .icon-btn:hover { background: #24304a; }
 .icon-btn-danger { border-color: rgba(255,93,93,0.4); color: #ff9d9d; }
 .icon-btn-danger:hover { background: rgba(255,93,93,0.15); border-color: var(--danger); }
+.icon-btn:disabled { background: #1c2434; color: #5c6a85; cursor: not-allowed; border-color: #2a3448; }
+.icon-btn:disabled:hover { background: #1c2434; }
+#ceoAbilityValue { margin-left: 4px; font-weight: 700; opacity: 0.85; }
 
 /* ---- top-center: logo + funding-stage timeline, shrunk into a pill ---- */
 #hudTopCenter {
@@ -300,7 +303,31 @@ html, body {
   align-items: center;
   text-align: center;
 }
-.menu-main-card h1 { margin: 0 0 28px; }
+.menu-main-card h1 { margin: 0 0 20px; }
+.ceo-gender-toggle {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 22px;
+}
+.gender-btn {
+  flex: 1;
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  color: var(--dim);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.gender-btn:hover { border-color: #3a4c6b; }
+.gender-btn.active {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: rgba(57,255,136,0.1);
+}
 .menu-actions {
   display: flex;
   flex-direction: column;

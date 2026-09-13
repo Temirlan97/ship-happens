@@ -65,6 +65,22 @@
     character_coffee_2: 'assets/characters/coffee_2.png',
     character_coffee_3: 'assets/characters/coffee_3.png',
     character_coffee_4: 'assets/characters/coffee_4.png',
+    // The CEO — 6 states (Crisis/Bootstrapping/Growing/Established/
+    // Successful/Tycoon) per gender, keyed by Core.ceoStateIndex+1 (see
+    // path.js's drawCeo). Not a rank ladder like the roles above — the
+    // number tracks financial state, not upgrade level.
+    character_ceo_male_1: 'assets/characters/ceo_male_1.png',
+    character_ceo_male_2: 'assets/characters/ceo_male_2.png',
+    character_ceo_male_3: 'assets/characters/ceo_male_3.png',
+    character_ceo_male_4: 'assets/characters/ceo_male_4.png',
+    character_ceo_male_5: 'assets/characters/ceo_male_5.png',
+    character_ceo_male_6: 'assets/characters/ceo_male_6.png',
+    character_ceo_female_1: 'assets/characters/ceo_female_1.png',
+    character_ceo_female_2: 'assets/characters/ceo_female_2.png',
+    character_ceo_female_3: 'assets/characters/ceo_female_3.png',
+    character_ceo_female_4: 'assets/characters/ceo_female_4.png',
+    character_ceo_female_5: 'assets/characters/ceo_female_5.png',
+    character_ceo_female_6: 'assets/characters/ceo_female_6.png',
     enemy_bug: 'assets/enemies/bug.png',
     enemy_competitor: 'assets/enemies/competitor.png'
   };

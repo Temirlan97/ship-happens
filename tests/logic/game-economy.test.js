@@ -221,7 +221,12 @@ describe('Core.restart', () => {
     Core.restart();
     expect(Core.budget).toBe(CFG.START_BUDGET);
     expect(Core.towers).toHaveLength(0);
-    expect(Core.stats).toEqual({ income: 0, salaries: 0, lost: 0, kills: 0 });
+    // ceoGender is a persisted preference, not run state (see tests/logic/ceo.test.js) —
+    // asserted as "unchanged by restart", not pinned to a specific value here.
+    expect(Core.stats).toEqual({
+      income: 0, salaries: 0, lost: 0, kills: 0,
+      ceoGender: Core.ceoGender, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0
+    });
     expect(Core.negativeBudgetTimer).toBe(0);
     expect(Core.waves.waveIndex).toBe(-1);
     expect(Core.state).toBe('playing');

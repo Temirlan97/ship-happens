@@ -162,7 +162,29 @@
     // — see window.Game.acquisitionThresholdFor below.
     ACQUISITION_MILESTONES: [3000000, 10000000, 50000000, 100000000],
     ACQUISITION_MILESTONE_GROWTH: 5,
-    ACQUISITION_PRICE_MULT: 3
+    ACQUISITION_PRICE_MULT: 3,
+
+    // The CEO: a free, always-present fixture next to the Product kiosk —
+    // not a Tower (no desk, no upgrade levels, no salary). His combat
+    // ability is manually triggered (unique among defenders, which all
+    // auto-fire) and both its cooldown and damage scale with
+    // Core.runwayRatio, the same 0-1 "paydays of runway" figure that
+    // already tints the kiosk itself — a thriving company makes him a
+    // stronger defender, a struggling one makes him a weaker one, same as
+    // his portrait visibly getting more/less stressed.
+    CEO: {
+      abilityRadius: 220,
+      abilityBaseDamage: 40,
+      abilityBuffFireRateMult: 0.75, // <1 = faster firing, same convention as auraRateMultValue
+      abilityBuffDurationMs: 4000,
+      abilityCooldownMaxMs: 20000, // at runwayRatio 0 (though the ability is fully disabled below budget 0 anyway)
+      abilityCooldownMinMs: 6000,  // at runwayRatio 1
+      incomeIntervalMs: 20000,
+      // One passive income tick per interval, sized by the same 0-5 visual
+      // state index as his portrait (index 0 = Crisis = no deals closed
+      // while distracted).
+      incomeByState: [0, 900, 1800, 3200, 6000, 12000]
+    }
   };
 
   window.Game = window.Game || {};

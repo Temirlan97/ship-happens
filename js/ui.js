@@ -44,9 +44,13 @@
     el('acquisitionAcceptBtn').addEventListener('click', () => core.acceptAcquisition());
     el('acquisitionDeclineBtn').addEventListener('click', () => core.declineAcquisition());
     el('acquisitionDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
+    el('ceoAbilityBtn').addEventListener('click', () => core.useCeoAbility());
+    el('ceoGenderMaleBtn').addEventListener('click', () => core.setCeoGender('male'));
+    el('ceoGenderFemaleBtn').addEventListener('click', () => core.setCeoGender('female'));
     renderTimeline();
     showScreen('menu');
     updateHUD();
+    updateGenderToggle();
     loadVersionBadge();
   }
 
@@ -205,6 +209,11 @@
       el('nextSprintBtn').classList.remove('hidden');
       banner.classList.toggle('urgent', secs <= 3);
     }
+
+    const ceoBtn = el('ceoAbilityBtn');
+    const ceoDisabled = core.budget < 0 || core.ceoAbilityCooldown > 0;
+    ceoBtn.disabled = ceoDisabled;
+    el('ceoAbilityValue').textContent = core.budget < 0 ? '' : (core.ceoAbilityCooldown > 0 ? `${Math.ceil(core.ceoAbilityCooldown / 1000)}s` : 'Ready');
 
     const warn = el('paydayWarning');
     if (core.negativeBudgetTimer > 0) {
@@ -494,12 +503,18 @@
     el('acquisitionDialog').classList.add('hidden');
   }
 
+  function updateGenderToggle() {
+    if (!core) return;
+    el('ceoGenderMaleBtn').classList.toggle('active', core.ceoGender === 'male');
+    el('ceoGenderFemaleBtn').classList.toggle('active', core.ceoGender === 'female');
+  }
+
   window.Game.UI = {
     init, updateHUD, showScreen, showMenuPanel,
     updateUpgradePanel, positionUpgradePanel, showToast,
     renderTimeline, updateTimeline, showHirePanel, refreshHirePanel,
     showConfirmDialog, hideConfirmDialog,
     showNameDialog, hideNameDialog, renderLeaderboard,
-    showAcquisitionDialog, hideAcquisitionDialog
+    showAcquisitionDialog, hideAcquisitionDialog, updateGenderToggle
   };
 })();
