@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   CAMPAIGN_SPRINTS, ENDLESS_COUNT_GROWTH, SPRINTS, MAX_GAME_SPEED, START_BUDGET,
   MAX_PLAUSIBLE_SPRINT, BUDGET_CEILING_PER_SECOND,
-  minSpawnMs, sprintFloorSeconds, budgetCeiling, checkPlausibility
+  minSpawnMs, sprintFloorSeconds, budgetCeiling, budgetIncomeCeiling, checkPlausibility
 } from '../../functions/_shared/plausibility.js';
 import { loadGame } from '../helpers/loadGame.js';
 
@@ -163,5 +163,70 @@ describe('checkPlausibility', () => {
   it('ignores a non-finite budget claim rather than crashing or false-flagging', () => {
     const result = checkPlausibility({ claimedSprint: 1, elapsedSeconds: 5, checkpointCount: 0, budget: NaN });
     expect(result.suspicious).toBe(false);
+  });
+
+  it('flags a budget with nothing in the reported income to justify it — the devtools "set Core.budget directly" case', () => {
+    // A long, otherwise-plausible real-time session but income/salaries/lost
+    // never moved — exactly what a client that bypassed addBudget entirely
+    // would report. elapsedSeconds is deliberately large enough that the
+    // time-based budget_ceiling check alone wouldn't catch this (a patient
+    // attacker who really did leave the tab open for a long time), isolating
+    // that budget_income_mismatch is what closes the gap.
+    const claimedSprint = 5;
+    const elapsedSeconds = sprintFloorSeconds(claimedSprint) * 3;
+    const budget = budgetCeiling(elapsedSeconds) - 1; // stay under the time-based ceiling
+    const result = checkPlausibility({
+      claimedSprint, elapsedSeconds, checkpointCount: 5,
+      budget, income: 0, salaries: 0, lost: 0
+    });
+    expect(result.suspicious).toBe(true);
+    expect(result.reasons).toEqual(['budget_income_mismatch']);
+  });
+
+  it('does not flag a budget fully backed by reported income, even after heavy salary/loss debits', () => {
+    const claimedSprint = 5;
+    const elapsedSeconds = sprintFloorSeconds(claimedSprint) * 3;
+    const result = checkPlausibility({
+      claimedSprint, elapsedSeconds, checkpointCount: 5,
+      budget: 10_000, income: 50_000, salaries: 30_000, lost: 12_000
+    });
+    expect(result.suspicious).toBe(false);
+  });
+
+  it('does not flag legitimate tower spending pulling budget below the income-only figure', () => {
+    // hireAt/upgradeSelected debit budget directly without touching any stat
+    // — a real player who spent heavily on towers ends up with LESS budget
+    // than START_BUDGET + income - salaries - lost, which must stay unflagged.
+    const claimedSprint = 5;
+    const elapsedSeconds = sprintFloorSeconds(claimedSprint) * 3;
+    const ceiling = budgetIncomeCeiling(20_000, 5_000, 1_000);
+    const result = checkPlausibility({
+      claimedSprint, elapsedSeconds, checkpointCount: 5,
+      budget: ceiling - 15_000, income: 20_000, salaries: 5_000, lost: 1_000
+    });
+    expect(result.suspicious).toBe(false);
+  });
+
+  it('skips the income-mismatch check when income was never reported', () => {
+    const claimedSprint = 5;
+    const elapsedSeconds = sprintFloorSeconds(claimedSprint) * 3;
+    const result = checkPlausibility({
+      claimedSprint, elapsedSeconds, checkpointCount: 5, budget: budgetCeiling(elapsedSeconds)
+    });
+    expect(result.suspicious).toBe(false);
+  });
+});
+
+describe('budgetIncomeCeiling', () => {
+  it('is exactly START_BUDGET with no income/salaries/lost', () => {
+    expect(budgetIncomeCeiling(0, 0, 0)).toBe(START_BUDGET);
+  });
+
+  it('adds income and subtracts salaries/lost', () => {
+    expect(budgetIncomeCeiling(1000, 300, 200)).toBe(START_BUDGET + 1000 - 300 - 200);
+  });
+
+  it('treats missing/non-finite salaries or lost as 0 rather than NaN-poisoning the result', () => {
+    expect(budgetIncomeCeiling(1000, undefined, NaN)).toBe(START_BUDGET + 1000);
   });
 });

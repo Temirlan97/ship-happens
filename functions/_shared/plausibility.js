@@ -115,19 +115,56 @@ export function budgetCeiling(elapsedSeconds) {
   return START_BUDGET + BUDGET_CEILING_PER_SECOND * Math.max(0, elapsedSeconds);
 }
 
-// Combines the elapsed-time floor, a checkpoint-trail requirement, and a
-// budget ceiling — together, the concrete answer to "make it hard to just
-// inspect the page and POST a forged score": a single forged request has no
-// prior checkpoints, even a scripted attacker replaying real checkpoints
-// still can't beat the physical spawn-timing floor above, and claiming an
+// A hard accounting ceiling, independent of elapsedSeconds/game speed: every
+// credit to Core.budget over a run flows through addBudget (js/game.js),
+// which always also increments stats.income by the same amount (tower
+// income ticks, kill bounties, funding-stage injections, Scale-Up
+// milestones — see that function's call sites). Every debit either goes
+// through stats.salaries (payday, severance) or stats.lost (enemy leaks,
+// competitor theft) — EXCEPT tower hires/upgrades (js/game.js hireAt/
+// upgradeSelected), which debit budget directly and are never reported in
+// any stat. That means real budget is START_BUDGET + income - salaries -
+// lost - (unreported tower spend), so the unreported term only ever pulls
+// the true value further BELOW this ceiling, never above it — making this a
+// strict, false-positive-free upper bound for any legitimate run, however
+// much was spent on towers.
+//
+// This is what actually catches a devtools user directly assigning
+// `Core.budget = 99999999`: doing so skips addBudget entirely, so it leaves
+// stats.income (and salaries/lost) completely unchanged — the claimed
+// budget spikes with nothing in the reported credits to justify it, which
+// the existing time/budgetCeiling checks don't catch at all if the player
+// genuinely spent real wall-clock time playing (just with free money).
+export function budgetIncomeCeiling(income, salaries, lost) {
+  const safe = (n) => (typeof n === 'number' && Number.isFinite(n)) ? n : 0;
+  return START_BUDGET + safe(income) - safe(salaries) - safe(lost);
+}
+
+// Combines the elapsed-time floor, a checkpoint-trail requirement, a
+// time-based budget ceiling, and an income-accounting ceiling — together,
+// the concrete answer to "make it hard to just inspect the page and POST a
+// forged score OR tamper with live game state": a single forged request has
+// no prior checkpoints, even a scripted attacker replaying real checkpoints
+// still can't beat the physical spawn-timing floor above, claiming an
 // implausibly large budget for how little time has actually elapsed gets
-// caught even if the sprint/checkpoint claims are individually consistent.
-export function checkPlausibility({ claimedSprint, elapsedSeconds, checkpointCount, budget }) {
+// caught even if the sprint/checkpoint claims are individually consistent,
+// and directly editing budget in devtools (rather than actually earning it
+// through the tracked income path) gets caught even across a long,
+// otherwise-plausible real-time play session.
+export function checkPlausibility({ claimedSprint, elapsedSeconds, checkpointCount, budget, income, salaries, lost }) {
   const reasons = [];
   if (elapsedSeconds < sprintFloorSeconds(claimedSprint) * FLOOR_SLACK) reasons.push('time_floor_violated');
   if (checkpointCount === 0 && claimedSprint > 3) reasons.push('no_checkpoints');
-  if (typeof budget === 'number' && Number.isFinite(budget) && budget > budgetCeiling(elapsedSeconds)) {
-    reasons.push('budget_ceiling_violated');
+  if (typeof budget === 'number' && Number.isFinite(budget)) {
+    if (budget > budgetCeiling(elapsedSeconds)) reasons.push('budget_ceiling_violated');
+    // Only checked when income was actually reported — a legitimate client
+    // always sends it (js/game.js initializes stats.income to 0 and only
+    // ever increments it), so a missing value means there's nothing here to
+    // verify against rather than something to penalize.
+    if (typeof income === 'number' && Number.isFinite(income) &&
+        budget > budgetIncomeCeiling(income, salaries, lost) + 1) {
+      reasons.push('budget_income_mismatch');
+    }
   }
   return { suspicious: reasons.length > 0, reasons };
 }

@@ -29,7 +29,10 @@ export async function onRequestPost({ request, env }) {
     claimedSprint,
     elapsedSeconds,
     checkpointCount: row.checkpoint_count,
-    budget: claimedBudget
+    budget: claimedBudget,
+    income: stats?.income,
+    salaries: stats?.salaries,
+    lost: stats?.lost
   });
 
   await env.DB.prepare(
