@@ -8,7 +8,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "pages:dev": "wrangler pages dev . --port 8788",
+    "pages:dev": "node scripts/gen-version.js && wrangler pages dev . --port 8788",
     "deploy": "node scripts/gen-version.js && wrangler pages deploy . --project-name=ship-happens"
   },
   "devDependencies": {

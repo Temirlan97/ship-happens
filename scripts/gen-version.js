@@ -1,5 +1,6 @@
-// Regenerates version.json right before every deploy (see package.json's
-// "deploy" script) — never hand-edit or commit this file. The frontend
+// Regenerates version.json right before every deploy and every local dev
+// run (see package.json's "deploy"/"pages:dev" scripts) — never hand-edit
+// or commit this file. The frontend
 // fetches it with cache: 'no-store' at load time (see js/ui.js) so the
 // on-screen version badge is immune to the js/css static-asset caching
 // issue described in CLAUDE.md: index.html always revalidates, so a
