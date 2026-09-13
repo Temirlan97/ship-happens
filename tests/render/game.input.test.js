@@ -551,11 +551,26 @@ describe('leaderboard integration', () => {
     expect(spy).toHaveBeenCalledOnce();
   });
 
-  it('gameOver reports the finished run and shows the name dialog when eligible', async () => {
+  it('gameOver auto-submits the already-known CEO name on a qualifying run, with a toast — never the old name-entry dialog', async () => {
+    Core.ceoName = 'Ada';
     vi.spyOn(Game.Leaderboard, 'finishRun').mockResolvedValue({ qualifiesForName: true, rank: 5 });
     vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([]);
+    const submitSpy = vi.spyOn(Game.Leaderboard, 'submitName').mockResolvedValue({ ok: true, name: 'Ada' });
+    const toastSpy = vi.spyOn(Game.UI, 'showToast').mockImplementation(() => {});
     const showSpy = vi.spyOn(Game.UI, 'showNameDialog').mockImplementation(() => {});
     Core.waves.waveIndex = 4;
+    Core.gameOver();
+    await vi.waitFor(() => expect(submitSpy).toHaveBeenCalledWith('Ada'));
+    expect(toastSpy).toHaveBeenCalledWith(expect.stringContaining('Ada'));
+    expect(showSpy).not.toHaveBeenCalled();
+  });
+
+  it('gameOver falls back to the old name-entry dialog if auto-submitting the known name is rejected', async () => {
+    Core.ceoName = 'Ada';
+    vi.spyOn(Game.Leaderboard, 'finishRun').mockResolvedValue({ qualifiesForName: true, rank: 5 });
+    vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([]);
+    vi.spyOn(Game.Leaderboard, 'submitName').mockResolvedValue({ ok: false, reason: 'profanity' });
+    const showSpy = vi.spyOn(Game.UI, 'showNameDialog').mockImplementation(() => {});
     Core.gameOver();
     await vi.waitFor(() => expect(showSpy).toHaveBeenCalledWith(5));
   });

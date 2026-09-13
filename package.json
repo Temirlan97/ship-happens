@@ -9,11 +9,13 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "pages:dev": "node scripts/gen-version.js && wrangler pages dev . --port 8788",
+    "screenshot": "node scripts/screenshot.js",
     "deploy": "node scripts/gen-version.js && wrangler pages deploy . --project-name=ship-happens"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^5.0.0",
     "jsdom": "^30.0.1",
+    "playwright": "^1.62.0",
     "vitest": "^5.0.0",
     "wrangler": "^4.129.0"
   }

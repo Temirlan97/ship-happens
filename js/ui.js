@@ -49,10 +49,11 @@
     el('acquisitionAcceptBtn').addEventListener('click', () => core.acceptAcquisition());
     el('acquisitionDeclineBtn').addEventListener('click', () => core.declineAcquisition());
     el('acquisitionDialog').addEventListener('pointerdown', (e) => e.stopPropagation());
-    el('ceoPortraitMaleBtn').addEventListener('click', () => core.confirmIdentity(el('ceoNameInput').value, 'male'));
-    el('ceoPortraitFemaleBtn').addEventListener('click', () => core.confirmIdentity(el('ceoNameInput').value, 'female'));
+    el('ceoPortraitMaleBtn').addEventListener('click', () => tryConfirmIdentity('male'));
+    el('ceoPortraitFemaleBtn').addEventListener('click', () => tryConfirmIdentity('female'));
+    el('ceoNameInput').addEventListener('input', () => el('ceoNameError').classList.add('hidden'));
     el('ceoNameInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') core.confirmIdentity(el('ceoNameInput').value, core.ceoGender);
+      if (e.key === 'Enter') tryConfirmIdentity(core.ceoGender);
     });
     renderTimeline();
     showScreen('menu');
@@ -367,7 +368,17 @@
     el('menuFeedbackPanel').classList.toggle('hidden', name !== 'feedback');
     if (name === 'leaderboard') showMenuLeaderboard();
     if (name === 'feedback') resetFeedbackPanel();
-    if (name === 'namepick') el('ceoNameInput').focus();
+    if (name === 'namepick') { el('ceoNameError').classList.add('hidden'); el('ceoNameInput').focus(); }
+  }
+
+  // The name is mandatory (see CLAUDE.md — it's what lets a qualifying run
+  // skip asking again at game-over) — validated here rather than inside
+  // Core.confirmIdentity so the "show an inline error" concern stays a UI
+  // one, not a Core one.
+  function tryConfirmIdentity(gender) {
+    const name = el('ceoNameInput').value.trim();
+    if (!name) { el('ceoNameError').classList.remove('hidden'); el('ceoNameInput').focus(); return; }
+    core.confirmIdentity(name, gender);
   }
 
   // Every fresh open should start from a clean slate — a previous

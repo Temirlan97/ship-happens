@@ -414,7 +414,7 @@
   // drifting out of sync with this one.
   function ceoAnchor() {
     const end = waypoints[waypoints.length - 1];
-    return { x: end.x - 60, y: end.y - 70 };
+    return { x: end.x - 60, y: end.y - 150 };
   }
 
   // ---- The CEO: a free, always-present, static fixture — portrait swaps
@@ -472,15 +472,16 @@
     }
     ctx.restore();
 
-    // Ability status — replaces what used to be a HUD button; clicking him
-    // (see Core.hitTest/runTap) is the trigger now, so the affordance lives
-    // on the character himself.
+    // His name, not an ability-status readout — the pulsing ready-ring
+    // above already signals whether clicking him does anything, so a text
+    // label repeating "All-Hands: Ready/Xs" here was redundant. Same
+    // treatment Tower gives its rank label below a hired teammate.
     ctx.save();
     ctx.font = 'bold 10px sans-serif';
     ctx.textAlign = 'center';
     ctx.shadowColor = '#000'; ctx.shadowBlur = 3;
-    ctx.fillStyle = ready ? '#5fe37f' : '#8f9bb5';
-    ctx.fillText(ready ? 'All-Hands: Ready' : `All-Hands: ${Math.ceil(Core.ceoAbilityCooldown / 1000)}s`, px, py + 30);
+    ctx.fillStyle = accent;
+    ctx.fillText(Core.ceoDisplayName, px, py + 30);
     ctx.restore();
   }
 

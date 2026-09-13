@@ -621,6 +621,34 @@ describe('UI.init wires the pre-game name/gender picker', () => {
     expect(Core.state).toBe('playing');
   });
 
+  it('the name is mandatory — an empty name blocks confirmation and shows an inline error', () => {
+    Core.ceoOnboarded = false;
+    el('menuPlayBtn').click();
+    el('ceoNameInput').value = '';
+    el('ceoPortraitMaleBtn').click();
+    expect(Core.ceoOnboarded).toBe(false);
+    expect(Core.state).not.toBe('playing');
+    expect(el('ceoNameError').classList.contains('hidden')).toBe(false);
+  });
+
+  it('a whitespace-only name is treated as empty and still blocked', () => {
+    Core.ceoOnboarded = false;
+    el('menuPlayBtn').click();
+    el('ceoNameInput').value = '   ';
+    el('ceoPortraitMaleBtn').click();
+    expect(Core.ceoOnboarded).toBe(false);
+    expect(el('ceoNameError').classList.contains('hidden')).toBe(false);
+  });
+
+  it('typing after a blocked attempt clears the error', () => {
+    Core.ceoOnboarded = false;
+    el('menuPlayBtn').click();
+    el('ceoPortraitMaleBtn').click(); // blocked, error shown
+    el('ceoNameInput').value = 'A';
+    el('ceoNameInput').dispatchEvent(new Event('input'));
+    expect(el('ceoNameError').classList.contains('hidden')).toBe(true);
+  });
+
   it('pressing Enter in the name field confirms with the current gender', () => {
     Core.ceoOnboarded = false;
     Core.ceoGender = 'male';

@@ -5,3 +5,6 @@ CLAUDE.md
 .wrangler/
 .dev.vars
 version.json
+
+# Screenshot script output (see scripts/screenshot.js)
+scratchpad/

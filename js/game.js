@@ -834,11 +834,18 @@
       window.Game.UI.updateHUD();
 
       // Both fire-and-forget from gameOver's own point of view — the game-
-      // over screen doesn't wait on either; the name dialog (if eligible)
-      // and the leaderboard list just pop in a moment later once the
-      // network round trip resolves.
+      // over screen doesn't wait on either. The name is already known (the
+      // pre-game picker requires one — see confirmIdentity), so a
+      // qualifying run submits it automatically instead of asking again;
+      // the old name-entry dialog is kept only as a fallback for the rare
+      // case the server-side name filter rejects it (the picker's name
+      // isn't filtered client-side, only the leaderboard submission is).
       window.Game.Leaderboard.finishRun(this.lastReachedSprint, this.budget, this.stats, reason).then((res) => {
-        if (res && res.qualifiesForName) window.Game.UI.showNameDialog(res.rank);
+        if (!res || !res.qualifiesForName) return;
+        this.submitLeaderboardName(this.ceoName).then((r) => {
+          if (r && r.ok) window.Game.UI.showToast(`Added to the leaderboard as ${this.ceoDisplayName}!`);
+          else window.Game.UI.showNameDialog(res.rank);
+        });
       });
       window.Game.Leaderboard.fetchLeaderboard().then((entries) => window.Game.UI.renderLeaderboard(entries));
     },
