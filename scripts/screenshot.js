@@ -37,12 +37,14 @@ async function main() {
   const page = await pageCtx.newPage();
   await page.goto(opts.url, { waitUntil: 'networkidle' });
 
-  // Play a fresh game: click Play, then (since this is a brand-new browser
-  // context — no localStorage) click through the one-time identity picker,
-  // same sequence a real first-time player takes.
+  // Play a fresh game: click Play, then click through the name/gender
+  // picker shown at the start of every game — same sequence a real player
+  // takes. The name is mandatory, so it has to be filled before a portrait
+  // click will actually confirm and start the game.
   await page.click('#menuPlayBtn');
   const pickerVisible = await page.locator('#menuNamePickPanel').isVisible().catch(() => false);
   if (pickerVisible) {
+    await page.fill('#ceoNameInput', 'Test');
     await page.click('#ceoPortraitMaleBtn');
   }
   await page.waitForTimeout(opts.wait); // let a few animation frames render

@@ -142,6 +142,7 @@
         : '';
       btn.innerHTML = `
         <div class="card-cooldown"></div>
+        <div class="card-cooldown-label"></div>
         ${lockHtml}
         <div class="card-icon"></div>
         <div class="card-name">${def.name}</div>
@@ -151,6 +152,7 @@
       // compatible with the site's style-src 'self' CSP — inline style
       // attributes are blocked by CSP, direct .style property writes aren't.
       btn.querySelector('.card-cooldown').style.height = (s.roleLocked ? 0 : s.cooldownFraction * 100) + '%';
+      btn.querySelector('.card-cooldown-label').textContent = cooldownLabel(s);
       btn.querySelector('.card-icon').style.backgroundImage = `url('assets/characters/${key}.png')`;
       btn.addEventListener('click', (e) => { e.stopPropagation(); core.hireAt(desk.col, desk.row, key); });
       panel.appendChild(btn);
@@ -168,9 +170,22 @@
 
   function cardClassFor(s) {
     let cls = 'card hire-option';
+    // on-cooldown is deliberately its own class, not folded into `disabled`
+    // — the two used to look identical (same dim + grey overlay), which
+    // read as "you can't afford this" even when the real reason was a
+    // cooldown. on-cooldown keeps the card bright with a colored sweep +
+    // a countdown instead, so the two reasons are visually distinct.
     if (s.roleLocked) cls += ' role-locked';
-    else if (s.locked || !s.affordable) cls += ' disabled';
+    else if (s.locked) cls += ' on-cooldown';
+    else if (!s.affordable) cls += ' disabled';
     return cls;
+  }
+
+  // A whole-second countdown ("2s"), not a live decimal — this only needs
+  // to be readable at a glance, and the falling cooldown-fill bar already
+  // shows finer progress visually.
+  function cooldownLabel(s) {
+    return s.locked ? `${Math.ceil(s.cooldownMs / 1000)}s` : '';
   }
 
   // Called every frame while a hire panel is open (see game.js's loop) so the
@@ -187,6 +202,8 @@
       btn.disabled = s.roleLocked || s.locked || !s.affordable;
       const bar = btn.querySelector('.card-cooldown');
       if (bar) bar.style.height = (s.roleLocked ? 0 : s.cooldownFraction * 100) + '%';
+      const label = btn.querySelector('.card-cooldown-label');
+      if (label) label.textContent = cooldownLabel(s);
     });
   }
 

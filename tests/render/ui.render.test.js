@@ -215,13 +215,26 @@ describe('UI.showHirePanel', () => {
     expect(buttons).toHaveLength(nonCoffeeRoles.length);
   });
 
-  it('disables a role button once its cooldown is active', () => {
+  it('disables a role button once its cooldown is active, with its own on-cooldown class and a countdown label — distinct from "can\'t afford"', () => {
     const d = CFG.DESK_POSITIONS[0];
     Core.hireAt(d.col, d.row, 'engineer'); // starts engineer's cooldown
     UI.showHirePanel(CFG.DESK_POSITIONS[1]);
     const btn = el('hirePanel').querySelector('button[data-type="engineer"]');
     expect(btn.disabled).toBe(true);
-    expect(btn.className).toMatch(/disabled/);
+    expect(btn.className).toMatch(/on-cooldown/);
+    expect(btn.className).not.toMatch(/\bdisabled\b/);
+    const label = btn.querySelector('.card-cooldown-label');
+    expect(label.textContent).toMatch(/^\d+s$/);
+  });
+
+  it('disables an unaffordable-but-off-cooldown role with the plain "disabled" class, not on-cooldown, and no countdown label', () => {
+    Core.budget = 0;
+    UI.showHirePanel(CFG.DESK_POSITIONS[0]);
+    const btn = el('hirePanel').querySelector('button[data-type="engineer"]');
+    expect(btn.disabled).toBe(true);
+    expect(btn.className).toMatch(/\bdisabled\b/);
+    expect(btn.className).not.toMatch(/on-cooldown/);
+    expect(btn.querySelector('.card-cooldown-label').textContent).toBe('');
   });
 
   it('clicking a role button hires that role at the desk', () => {
@@ -239,15 +252,21 @@ describe('UI.refreshHirePanel', () => {
     expect(() => UI.refreshHirePanel()).not.toThrow();
   });
 
-  it('live-updates the cooldown bar height without rebuilding the panel', () => {
+  it('live-updates the cooldown bar height and countdown label without rebuilding the panel', () => {
     const d0 = CFG.DESK_POSITIONS[0];
     const d1 = CFG.DESK_POSITIONS[1];
     Core.hireAt(d0.col, d0.row, 'engineer');
     UI.showHirePanel(d1);
     Core.cardCooldowns.engineer = CFG.TOWER_TYPES.engineer.cooldown / 2;
     UI.refreshHirePanel();
-    const bar = el('hirePanel').querySelector('button[data-type="engineer"] .card-cooldown');
-    expect(bar.style.height).toBe('50%');
+    const btn = el('hirePanel').querySelector('button[data-type="engineer"]');
+    expect(btn.querySelector('.card-cooldown').style.height).toBe('50%');
+    expect(btn.querySelector('.card-cooldown-label').textContent).toBe(`${Math.ceil(CFG.TOWER_TYPES.engineer.cooldown / 2000)}s`);
+
+    Core.cardCooldowns.engineer = 0;
+    UI.refreshHirePanel();
+    expect(btn.querySelector('.card-cooldown-label').textContent).toBe('');
+    expect(btn.className).not.toMatch(/on-cooldown/);
   });
 });
 

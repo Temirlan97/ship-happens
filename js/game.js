@@ -467,6 +467,7 @@
       return {
         roleLocked: !this.roleUnlocked(type),
         locked: cd > 0,
+        cooldownMs: cd,
         cooldownFraction: Math.min(1, cd / def.cooldown),
         affordable: this.budget >= cost,
         cost

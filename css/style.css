@@ -747,15 +747,33 @@ html, body {
 .card.disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .card.disabled:hover { border-color: var(--border); }
 .card.role-locked { opacity: 0.55; cursor: not-allowed; }
+/* Deliberately NOT the same 0.4-opacity dim as .disabled (can't afford) —
+   those two used to look identical, which read as "you're broke" even
+   when the real reason was a cooldown. Stays bright with an amber border
+   and an amber sweep + countdown instead, so the two are unmistakable at
+   a glance. */
+.card.on-cooldown { border-color: var(--amber); cursor: not-allowed; transform: none; }
+.card.on-cooldown:hover { border-color: var(--amber); }
 
 .card-cooldown {
   position: absolute;
   left: 0; right: 0; bottom: 0;
   height: 0%;
-  background: rgba(0,0,0,0.6);
+  background: rgba(255,180,84,0.4); /* var(--amber), tinted — see .card.on-cooldown */
   pointer-events: none;
   transition: height 0.1s linear;
   z-index: 1;
+}
+.card-cooldown-label {
+  position: absolute;
+  top: 6px; left: 0; right: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--amber);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  pointer-events: none;
+  z-index: 3;
 }
 
 .card-lock {

@@ -496,7 +496,11 @@
     const x = px + 30, y = py + 14;
     const sprite = window.Game.Assets.get(CEO_PROP_KEYS[stateIndex]);
     if (sprite) {
-      const h = 55, w = h * (sprite.naturalWidth / sprite.naturalHeight);
+      // A small floor-level accessory, not a second figure — 30px is
+      // ~27% of the CEO's own 110px render height (see drawCeo). The
+      // previous 55px (exactly half his height) read as "a ramen cup the
+      // size of half a human," which is exactly the bug being fixed here.
+      const h = 30, w = h * (sprite.naturalWidth / sprite.naturalHeight);
       ctx.drawImage(sprite, x - w / 2, y - h + 14, w, h);
       return;
     }
