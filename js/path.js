@@ -425,7 +425,11 @@
     const Core = window.Game.Core;
     const { x: px, y: py } = ceoAnchor();
     const stateIndex = Core.ceoStateIndex;
-    const ready = Core.ceoAbilityCooldown <= 0 && Core.budget >= 0;
+    // A single ring can't cleanly represent 3 independent cooldowns — it
+    // just signals "at least one ability is ready"; the panel's own cards
+    // (see ui.js) carry the per-ability detail once it's open.
+    const ready = Core.budget >= 0 &&
+      (Core.ceoAllHandsCooldown <= 0 || Core.ceoBonusesCooldown <= 0 || Core.ceoFixBugsCooldown <= 0);
     const tierColors = ['#e0503c', '#a9a9a9', '#5b9dff', '#3a4150', '#f2c94c', '#c9a876'];
     const accent = tierColors[stateIndex];
 

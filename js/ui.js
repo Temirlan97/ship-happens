@@ -18,6 +18,7 @@
     el('fireBtn').addEventListener('click', (e) => { e.stopPropagation(); core.fireSelectedTower(); });
     el('upgradePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('hirePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
+    el('ceoAbilityPanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('menuPlayBtn').addEventListener('click', () => {
       if (core.state === 'paused') { core.togglePause(); return; }
       beginNewGame('start');
@@ -201,6 +202,76 @@
       const label = btn.querySelector('.card-cooldown-label');
       if (label) label.textContent = cooldownLabel(s);
     });
+  }
+
+  // The 3 CEO abilities — icon/label/Core method per card. Not
+  // role-gated or costed (see Core.getCeoAbilityState), so this panel
+  // reuses the hire panel's card markup/CSS/cardClassFor/cooldownLabel
+  // verbatim, just always showing all 3 with no lock/afford states.
+  const CEO_ABILITIES = [
+    { key: 'allHands', name: 'All-Hands', icon: 'assets/enemies/bug.png', cast: (c) => c.useCeoAllHands() },
+    { key: 'bonuses', name: 'Distribute Bonuses', icon: 'assets/tiles/prop_ceo_coins.png', cast: (c) => c.useCeoBonuses() },
+    { key: 'fixBugs', name: 'Fix Bugs', icon: 'assets/characters/qa_4.png', cast: (c) => c.useCeoFixBugs() }
+  ];
+
+  function showCeoAbilityPanel(open) {
+    const panel = el('ceoAbilityPanel');
+    if (!open || !core) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+
+    panel.innerHTML = '';
+    CEO_ABILITIES.forEach((ability) => {
+      const s = core.getCeoAbilityState(ability.key);
+      const btn = document.createElement('button');
+      btn.dataset.key = ability.key;
+      btn.className = cardClassFor(s);
+      btn.disabled = s.locked;
+      btn.innerHTML = `
+        <div class="card-cooldown"></div>
+        <div class="card-cooldown-label"></div>
+        <div class="card-icon"></div>
+        <div class="card-name">${ability.name}</div>
+      `;
+      btn.querySelector('.card-cooldown').style.height = s.cooldownFraction * 100 + '%';
+      btn.querySelector('.card-cooldown-label').textContent = cooldownLabel(s);
+      btn.querySelector('.card-icon').style.backgroundImage = `url('${ability.icon}')`;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ability.cast(core);
+        core.ceoMenuOpen = false;
+        showCeoAbilityPanel(false);
+      });
+      panel.appendChild(btn);
+    });
+
+    panel.classList.remove('hidden');
+  }
+
+  // Called every frame while open (see game.js's loop), same reasoning as
+  // refreshHirePanel — cooldowns count down live instead of freezing at
+  // whatever they read the instant the panel opened.
+  function refreshCeoAbilityPanel() {
+    const panel = el('ceoAbilityPanel');
+    if (panel.classList.contains('hidden') || !core) return;
+    panel.querySelectorAll('button').forEach((btn) => {
+      const s = core.getCeoAbilityState(btn.dataset.key);
+      btn.className = cardClassFor(s);
+      btn.disabled = s.locked;
+      btn.querySelector('.card-cooldown').style.height = s.cooldownFraction * 100 + '%';
+      btn.querySelector('.card-cooldown-label').textContent = cooldownLabel(s);
+    });
+  }
+
+  // Same world-to-screen positioning math positionUpgradePanel uses,
+  // anchored above the CEO instead of a selected tower.
+  function positionCeoAbilityPanel(canvas) {
+    const panel = el('ceoAbilityPanel');
+    if (panel.classList.contains('hidden') || !core) return;
+    const anchor = window.Game.Path.ceoAnchor;
+    const screenPt = window.Game.Camera.worldToScreen(anchor.x, anchor.y);
+    const scaleX = canvas.clientWidth / canvas.width;
+    const scaleY = canvas.clientHeight / canvas.height;
+    panel.style.left = (canvas.offsetLeft + screenPt.x * scaleX) + 'px';
+    panel.style.top = (canvas.offsetTop + screenPt.y * scaleY - 20) + 'px';
   }
 
   function updateHUD() {
@@ -565,6 +636,7 @@
     init, updateHUD, showScreen, showMenuPanel,
     updateUpgradePanel, positionUpgradePanel, showToast,
     renderTimeline, updateTimeline, showHirePanel, refreshHirePanel,
+    showCeoAbilityPanel, refreshCeoAbilityPanel, positionCeoAbilityPanel,
     showConfirmDialog, hideConfirmDialog,
     showNameDialog, hideNameDialog, renderLeaderboard,
     showAcquisitionDialog, hideAcquisitionDialog

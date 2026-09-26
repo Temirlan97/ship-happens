@@ -165,22 +165,19 @@
     ACQUISITION_PRICE_MULT: 3,
 
     // The CEO: a free, always-present fixture next to the Product kiosk —
-    // not a Tower (no desk, no upgrade levels, no salary). His combat
-    // ability is manually triggered by clicking him directly (unique among
-    // defenders, which all auto-fire), and both its cooldown and damage
-    // scale with Core.runwayRatio, the same 0-1 "paydays of runway" figure
-    // that already tints the kiosk itself — a thriving company makes him a
-    // stronger defender, a struggling one a weaker one.
+    // not a Tower (no desk, no upgrade levels, no salary). He has 3
+    // abilities, picked from a menu that opens when you click him (same
+    // look as the hire/upgrade panels) — every other defender just
+    // auto-fires, so a manual, character-sourced menu is what makes him
+    // feel unique. Every ability is free (cooldown-only, no $ cost) and
+    // fully independent (no mutual exclusion — more than one can be
+    // active at once). Each ability's cooldown scales with
+    // Core.runwayRatio (thriving company -> recharges faster — the same
+    // 0-1 "paydays of runway" figure that already tints the kiosk itself),
+    // while its magnitude (damage/duration/etc.) scales with
+    // Core.ceoStateIndex (his wealth tier) — short-term health gates HOW
+    // OFTEN, long-term wealth gates HOW STRONG.
     CEO: {
-      // "Grand but rare" — a big AoE hit worth waiting for, not a spammable
-      // button. abilityCooldownMaxMs applies at runwayRatio 0 (though the
-      // ability is fully disabled below budget 0 anyway), MinMs at ratio 1.
-      abilityRadius: 260,
-      abilityBaseDamage: 70,
-      abilityBuffFireRateMult: 0.75, // <1 = faster firing, same convention as auraRateMultValue
-      abilityBuffDurationMs: 6000,
-      abilityCooldownMaxMs: 60000,
-      abilityCooldownMinMs: 18000,
       incomeIntervalMs: 20000,
       // One passive income tick per interval, sized by the same 0-5 visual
       // state index as his portrait (index 0 = Crisis = no deals closed
@@ -195,7 +192,50 @@
       // this object is still being built when they'd otherwise be
       // referenced) — "Successful"/"Tycoon" should feel like the same
       // milestones the acquisition-offer system already treats as a big deal.
-      wealthThresholds: [50000, 250000, 3000000, 10000000]
+      wealthThresholds: [50000, 250000, 3000000, 10000000],
+
+      abilities: {
+        // A channeled effect, not an instant burst — while active, strikes
+        // EVERY currently-alive bug (only bugs, not competitors/incidents)
+        // once per tick. The one-time "grand" cast flourish (shake/rings/
+        // flash/banner/fanfare) still fires once on cast, same as before.
+        allHands: {
+          cooldownMinMs: 18000,
+          cooldownMaxMs: 60000,
+          tickIntervalMs: 500,
+          durationByState: [3000, 4000, 5000, 6000, 8000, 10000],
+          damageByState: [15, 20, 28, 38, 52, 70]
+        },
+        // A team-wide buff: "$" flies from the CEO to every hired tower,
+        // then hovers over them for the duration while damage/fire-rate
+        // are boosted — folds into the same auraDmgMultFor/auraRateMultFor
+        // hooks the coffee machine's aura already uses.
+        bonuses: {
+          cooldownMinMs: 15000,
+          cooldownMaxMs: 45000,
+          durationByState: [4000, 6000, 8000, 10000, 13000, 16000],
+          dmgMultByState: [1.1, 1.15, 1.2, 1.3, 1.4, 1.5],
+          fireRateMultByState: [0.9, 0.85, 0.8, 0.7, 0.6, 0.5] // <1 = faster, same convention as auraRateMultValue
+        },
+        // The CEO becomes a point-defense attacker himself for the
+        // duration — same attack shape as the QA tower (chain + slow),
+        // deliberately inlined rather than shared since he's still not a
+        // Tower instance. chainRange/chainFalloff/slow/slowDuration/
+        // fireRateMs are flat (only damage/range/duration were asked to
+        // scale with his state).
+        fixBugs: {
+          cooldownMinMs: 20000,
+          cooldownMaxMs: 55000,
+          durationByState: [3000, 4000, 6000, 8000, 10000, 13000],
+          damageByState: [12, 18, 26, 36, 50, 68],
+          rangeByState: [110, 130, 150, 170, 190, 220],
+          fireRateMs: 1200,
+          chainRange: 110,
+          chainFalloff: 0.55,
+          slow: 0.4,
+          slowDuration: 1600
+        }
+      }
     }
   };
 

@@ -87,13 +87,28 @@ describe('CEO config shape', () => {
     }
   });
 
-  it('a healthier runway ratio always means a shorter ability cooldown', () => {
-    expect(CFG.CEO.abilityCooldownMinMs).toBeLessThan(CFG.CEO.abilityCooldownMaxMs);
+  it('all 3 abilities: a healthier runway ratio always means a shorter cooldown', () => {
+    const abilities = CFG.CEO.abilities;
+    for (const key of ['allHands', 'bonuses', 'fixBugs']) {
+      expect(abilities[key].cooldownMinMs, key).toBeLessThan(abilities[key].cooldownMaxMs);
+    }
   });
 
-  it('the fire-rate buff multiplier speeds towers up (a fraction, not a slowdown)', () => {
-    expect(CFG.CEO.abilityBuffFireRateMult).toBeLessThan(1);
-    expect(CFG.CEO.abilityBuffFireRateMult).toBeGreaterThan(0);
+  it('all 3 abilities: duration and magnitude strictly increase with CEO state', () => {
+    const { allHands, bonuses, fixBugs } = CFG.CEO.abilities;
+    for (const arr of [allHands.durationByState, allHands.damageByState,
+      bonuses.durationByState, bonuses.dmgMultByState,
+      fixBugs.durationByState, fixBugs.damageByState, fixBugs.rangeByState]) {
+      expect(arr).toHaveLength(6);
+      for (let i = 1; i < arr.length; i++) expect(arr[i]).toBeGreaterThan(arr[i - 1]);
+    }
+  });
+
+  it('bonuses.fireRateMultByState speeds towers up (fractions <1, decreasing = faster at higher states)', () => {
+    const arr = CFG.CEO.abilities.bonuses.fireRateMultByState;
+    expect(arr).toHaveLength(6);
+    for (const v of arr) { expect(v).toBeLessThan(1); expect(v).toBeGreaterThan(0); }
+    for (let i = 1; i < arr.length; i++) expect(arr[i]).toBeLessThan(arr[i - 1]);
   });
 
   it('has 4 strictly increasing wealth thresholds separating the 5 non-Crisis tiers', () => {

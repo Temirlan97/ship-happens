@@ -101,18 +101,57 @@ describe('pointerdown routing', () => {
 });
 
 describe('clicking the CEO', () => {
-  it('triggers the All-Hands ability — the deliberate replacement for a HUD button', () => {
+  it('opens the ability menu instead of casting anything directly', () => {
     Core.budget = 1000;
     const anchor = PATH.ceoAnchor;
     click(anchor.x, anchor.y);
-    expect(Core.stats.ceoAbilityUses).toBe(1);
+    expect(Core.ceoMenuOpen).toBe(true);
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(false);
   });
 
-  it('does nothing while budget is negative (the same guard useCeoAbility always had)', () => {
+  it('clicking the CEO again closes the menu (toggle)', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    click(anchor.x, anchor.y);
+    expect(Core.ceoMenuOpen).toBe(false);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
+  });
+
+  it('clicking a card in the open menu casts that ability and closes the menu', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    const btn = document.querySelector('#ceoAbilityPanel button[data-key="allHands"]');
+    expect(btn).toBeTruthy();
+    btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+    expect(Core.ceoAllHandsTimer).toBeGreaterThan(0);
+    expect(Core.ceoMenuOpen).toBe(false);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
+  });
+
+  it('opening the menu while budget is negative still shows every card, but casting from it does nothing (the same guard each useCeoX always had)', () => {
     Core.budget = -1;
     const anchor = PATH.ceoAnchor;
     click(anchor.x, anchor.y);
+    expect(Core.ceoMenuOpen).toBe(true);
+    const btn = document.querySelector('#ceoAbilityPanel button[data-key="bonuses"]');
+    btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+
+  it('clicking elsewhere on the canvas closes the open menu without casting anything', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    expect(Core.ceoMenuOpen).toBe(true);
+    const empty = PATH.cellCenter(6, 0);
+    click(empty.x, empty.y);
+    expect(Core.ceoMenuOpen).toBe(false);
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
   });
 
   // hitTest's screen-space hitbox is RX=32,RY=55,LIFT=30 (see js/game.js),
@@ -132,11 +171,11 @@ describe('clicking the CEO', () => {
     }
     expect(minD).toBeGreaterThan(100); // sanity-check the safety margin itself
     click(PATH.ceoAnchor.x, PATH.ceoAnchor.y);
-    expect(Core.stats.ceoAbilityUses).toBe(1);
+    expect(Core.ceoMenuOpen).toBe(true);
     expect(Core.pendingHireDesk).not.toEqual(nearest);
   });
 
-  it('clicking the desk nearest the CEO opens its hire panel, not the ability', () => {
+  it('clicking the desk nearest the CEO opens its hire panel, not the ability menu', () => {
     let nearest = null, minD = Infinity;
     for (const d of CFG.DESK_POSITIONS) {
       const c = PATH.cellCenter(d.col, d.row);
@@ -146,6 +185,7 @@ describe('clicking the CEO', () => {
     const c = PATH.cellCenter(nearest.col, nearest.row);
     click(c.x, c.y);
     expect(Core.pendingHireDesk).toEqual(nearest);
+    expect(Core.ceoMenuOpen).toBe(false);
     expect(Core.stats.ceoAbilityUses).toBe(0);
   });
 });

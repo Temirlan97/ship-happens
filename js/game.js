@@ -6,7 +6,7 @@
 (function () {
   const CFG = window.Game.Config;
   const PATH = window.Game.Path;
-  const { Enemy, Tower, strokeGlowPath } = window.Game.Entities;
+  const { Enemy, Tower, strokeGlowPath, jaggedPoints } = window.Game.Entities;
   const { WaveManager } = window.Game.Waves;
 
   const canvas = document.getElementById('gameCanvas');
@@ -80,9 +80,36 @@
     // 'start' | 'restart' — which action the currently-open identity
     // picker should perform on confirm (see ui.js's beginNewGame).
     pendingGameAction: 'start',
-    ceoAbilityCooldown: 0,
-    ceoBuffTimer: 0,
+    // Whether the ability-select popup (mirrors the hire/upgrade panels)
+    // is currently open — toggled by clicking the CEO, closed by picking
+    // a card or clicking elsewhere (see runTap).
+    ceoMenuOpen: false,
     ceoIncomeTimer: 0,
+    // 3 fully independent abilities — each own cooldown + active-effect
+    // timer, no shared/mutual-exclusion state. See CFG.CEO.abilities.
+    ceoAllHandsCooldown: 0,
+    ceoAllHandsTimer: 0,     // ms remaining in the current channel, 0 = inactive
+    ceoAllHandsTickTimer: 0, // internal sub-timer for the periodic strikes
+    ceoBonusesCooldown: 0,
+    ceoBonusesTimer: 0,      // ms remaining on the team-wide buff, 0 = inactive
+    ceoFixBugsCooldown: 0,
+    ceoFixBugsTimer: 0,      // ms remaining in personal-attacker mode, 0 = inactive
+    ceoFixBugsFireCooldown: 0,
+    // Snapshotted at cast time (see the 3 useCeo* methods) — an ability's
+    // power doesn't drift mid-effect if budget crosses a threshold while
+    // it's still running. Defaults here are inert (0 damage/range, no-op
+    // multipliers) until the first real cast.
+    ceoAllHandsDamage: 0,
+    ceoBonusesDmgMult: 1,
+    ceoBonusesFireRateMult: 1,
+    ceoFixBugsDamage: 0,
+    ceoFixBugsRange: 0,
+    // The actual cooldown duration applied at cast time (runwayRatio-
+    // scaled, so it varies) — needed to render an accurate cooldown-bar
+    // fraction; cooldownMaxMs alone wouldn't match a shorter real cooldown.
+    ceoAllHandsCooldownTotal: 1,
+    ceoBonusesCooldownTotal: 1,
+    ceoFixBugsCooldownTotal: 1,
     // Seconds remaining to claw Budget back above zero before the run ends —
     // 0 means "not currently in the red." Set the moment Budget dips below
     // zero, cleared the moment it recovers; see the check at the end of update().
@@ -159,20 +186,87 @@
       return payroll > 0 ? Math.min(1, Math.max(0, this.budget / (payroll * 3))) : 1;
     },
 
-    useCeoAbility() {
-      if (this.state !== 'playing') return;
-      if (this.budget < 0 || this.ceoAbilityCooldown > 0) return;
-      const anchor = PATH.ceoAnchor;
+    // Shared by all 3 abilities: longer cooldown while the company is
+    // struggling (runwayRatio near 0), shorter while thriving (ratio 1) —
+    // same lerp shape the single ability used to use.
+    ceoAbilityCooldownFor(abilityCfg) {
       const ratio = this.runwayRatio;
-      const damage = CFG.CEO.abilityBaseDamage * (0.4 + 0.6 * ratio);
-      for (const e of this.enemies) {
-        if (e.dead || e.reachedEnd) continue;
-        if (Math.hypot(e.x - anchor.x, e.y - anchor.y) <= CFG.CEO.abilityRadius) e.takeDamage(damage);
-      }
-      this.ceoBuffTimer = CFG.CEO.abilityBuffDurationMs;
-      this.ceoAbilityCooldown = CFG.CEO.abilityCooldownMaxMs - (CFG.CEO.abilityCooldownMaxMs - CFG.CEO.abilityCooldownMinMs) * ratio;
+      return abilityCfg.cooldownMaxMs - (abilityCfg.cooldownMaxMs - abilityCfg.cooldownMinMs) * ratio;
+    },
+
+    // Single source of truth for the ability-menu panel's per-card
+    // cooldown display (ui.js) — mirrors getCardState's shape for the
+    // hire panel (locked/cooldownFraction), minus "affordable"/"roleLocked"
+    // since abilities are free and never role-gated.
+    getCeoAbilityState(key) {
+      const map = {
+        allHands: [this.ceoAllHandsCooldown, this.ceoAllHandsCooldownTotal],
+        bonuses: [this.ceoBonusesCooldown, this.ceoBonusesCooldownTotal],
+        fixBugs: [this.ceoFixBugsCooldown, this.ceoFixBugsCooldownTotal]
+      };
+      const [cooldownMs, total] = map[key];
+      // affordable/roleLocked are always true/false — abilities are free
+      // and never role-gated — purely so this shares cardClassFor/
+      // cooldownLabel with the hire panel's cards verbatim (ui.js).
+      return { locked: cooldownMs > 0, cooldownMs, cooldownFraction: Math.min(1, cooldownMs / total), affordable: true, roleLocked: false };
+    },
+
+    // Every ability's magnitude is snapshotted at cast time (below), not
+    // re-read live during the channel/buff — so a budget swing mid-effect
+    // (combat losses, a funding injection landing) can't make an
+    // already-cast ability quietly get stronger or weaker partway through.
+    // What you cast is what you get for its whole duration.
+    useCeoAllHands() {
+      if (this.state !== 'playing') return;
+      if (this.budget < 0 || this.ceoAllHandsCooldown > 0) return;
+      const cfg = CFG.CEO.abilities.allHands;
+      const stateIndex = this.ceoStateIndex;
+      this.ceoAllHandsTimer = cfg.durationByState[stateIndex];
+      this.ceoAllHandsTickTimer = 0;
+      this.ceoAllHandsDamage = cfg.damageByState[stateIndex];
+      this.ceoAllHandsCooldown = this.ceoAllHandsCooldownTotal = this.ceoAbilityCooldownFor(cfg);
       this.stats.ceoAbilityUses++;
-      this.triggerAllHandsEffect(anchor);
+      this.triggerAllHandsEffect(PATH.ceoAnchor);
+    },
+
+    useCeoBonuses() {
+      if (this.state !== 'playing') return;
+      if (this.budget < 0 || this.ceoBonusesCooldown > 0) return;
+      const cfg = CFG.CEO.abilities.bonuses;
+      const stateIndex = this.ceoStateIndex;
+      this.ceoBonusesTimer = cfg.durationByState[stateIndex];
+      this.ceoBonusesDmgMult = cfg.dmgMultByState[stateIndex];
+      this.ceoBonusesFireRateMult = cfg.fireRateMultByState[stateIndex];
+      this.ceoBonusesCooldown = this.ceoBonusesCooldownTotal = this.ceoAbilityCooldownFor(cfg);
+      this.stats.ceoAbilityUses++;
+      const anchor = PATH.ceoAnchor;
+      // One flying "$" per hired tower — further towers take a moment
+      // longer to reach, same idea as Projectile's 'lob' kind interpolating
+      // over its own travel time.
+      for (const t of this.towers) {
+        const dist = Math.hypot(t.x - anchor.x, t.y - anchor.y);
+        const travel = 0.3 + Math.min(0.5, dist / 900);
+        this.effects.push({
+          type: 'cashFly', life: travel, maxLife: travel,
+          x: anchor.x, y: anchor.y - 20, targetX: t.x, targetY: t.y - 20
+        });
+      }
+      window.Game.Audio.budgetGain();
+      window.Game.UI.showToast(`${this.ceoDisplayName} distributes bonuses to the team!`);
+    },
+
+    useCeoFixBugs() {
+      if (this.state !== 'playing') return;
+      if (this.budget < 0 || this.ceoFixBugsCooldown > 0) return;
+      const cfg = CFG.CEO.abilities.fixBugs;
+      const stateIndex = this.ceoStateIndex;
+      this.ceoFixBugsTimer = cfg.durationByState[stateIndex];
+      this.ceoFixBugsFireCooldown = 0;
+      this.ceoFixBugsDamage = cfg.damageByState[stateIndex];
+      this.ceoFixBugsRange = cfg.rangeByState[stateIndex];
+      this.ceoFixBugsCooldown = this.ceoFixBugsCooldownTotal = this.ceoAbilityCooldownFor(cfg);
+      this.stats.ceoAbilityUses++;
+      window.Game.UI.showToast(`${this.ceoDisplayName} rolls up sleeves to fix bugs personally!`);
     },
 
     // A long cooldown deserves a moment that actually reads as a big deal —
@@ -180,16 +274,18 @@
     // a large gold particle burst, and a dead-center banner (same rendering
     // as a funding-round's bigPayday text, just gold instead of green and
     // no dollar amount), plus a distinct fanfare instead of reusing
-    // fundingRound()'s cue.
+    // fundingRound()'s cue. Fires once on cast, not per-tick — the actual
+    // damage happens in updateCeoAllHands below.
     triggerAllHandsEffect(anchor) {
       const GOLD = '#ffd76b';
+      const ringRadius = 220; // purely decorative now — All-Hands hits every bug map-wide, not enemies-in-radius
       this.shakeTimer = Math.max(this.shakeTimer, 0.6);
       window.Game.Audio.allHands();
       [0.5, 0.8, 1.1].forEach((mult, i) => {
         this.effects.push({
           type: 'ring', x: anchor.x, y: anchor.y,
           life: 0.5 + i * 0.2, maxLife: 0.5 + i * 0.2,
-          maxRadius: CFG.CEO.abilityRadius * mult, color: GOLD
+          maxRadius: ringRadius * mult, color: GOLD
         });
       });
       this.effects.push({ type: 'flash', life: 0.3, maxLife: 0.3, x: anchor.x, y: anchor.y, r: 140, color: GOLD });
@@ -204,9 +300,77 @@
       return this.ceoName || 'The founder';
     },
 
+    // Channeled: every tickIntervalMs while active, strike every currently
+    // -alive bug (only bugs — not competitors/incidents) with a lightning
+    // bolt from the CEO. Damage was fixed at cast time (see useCeoAllHands).
+    updateCeoAllHands(dt) {
+      if (this.ceoAllHandsTimer <= 0) return;
+      this.ceoAllHandsTimer = Math.max(0, this.ceoAllHandsTimer - dt * 1000);
+      const cfg = CFG.CEO.abilities.allHands;
+      this.ceoAllHandsTickTimer += dt * 1000;
+      if (this.ceoAllHandsTickTimer < cfg.tickIntervalMs) return;
+      this.ceoAllHandsTickTimer -= cfg.tickIntervalMs;
+      const anchor = PATH.ceoAnchor;
+      for (const e of this.enemies) {
+        if (e.dead || e.reachedEnd || e.type !== 'bug') continue;
+        e.takeDamage(this.ceoAllHandsDamage);
+        this.effects.push({ type: 'lightning', life: 0.16, maxLife: 0.16, points: jaggedPoints(anchor.x, anchor.y - 20, e.x, e.y, 6, 14), color: '#fff8dc', glow: '#ffd76b' });
+      }
+    },
+
+    // Not a real Tower instance (the CEO staying architecturally separate
+    // from Tower is deliberate — see CLAUDE.md) — a small bespoke
+    // targeting loop instead, same shape as the QA tower's chain-lightning
+    // attack (findTarget's "furthest along the path wins" rule, chain to
+    // one nearby enemy), just inlined rather than shared. Damage/range were
+    // fixed at cast time (see useCeoFixBugs); chainRange/chainFalloff/
+    // slow/slowDuration/fireRateMs are flat config, not state-scaled.
+    updateCeoFixBugs(dt) {
+      if (this.ceoFixBugsTimer <= 0) return;
+      this.ceoFixBugsTimer = Math.max(0, this.ceoFixBugsTimer - dt * 1000);
+      if (this.ceoFixBugsFireCooldown > 0) this.ceoFixBugsFireCooldown -= dt * 1000;
+      if (this.ceoFixBugsFireCooldown > 0) return;
+
+      const cfg = CFG.CEO.abilities.fixBugs;
+      const anchor = PATH.ceoAnchor;
+      const range = this.ceoFixBugsRange;
+      let target = null, bestProgress = -1;
+      for (const e of this.enemies) {
+        if (e.dead || e.reachedEnd) continue;
+        const d = Math.hypot(e.x - anchor.x, e.y - anchor.y);
+        if (d <= range && e.wpIndex > bestProgress) { bestProgress = e.wpIndex; target = e; }
+      }
+      if (!target) return;
+
+      this.ceoFixBugsFireCooldown = cfg.fireRateMs;
+      const damage = this.ceoFixBugsDamage;
+      target.takeDamage(damage);
+      target.applySlow(cfg.slow, cfg.slowDuration);
+      this.effects.push({ type: 'lightning', life: 0.16, maxLife: 0.16, points: jaggedPoints(anchor.x, anchor.y - 20, target.x, target.y, 6, 14), color: '#fff8dc', glow: '#5fe37f' });
+      this.effects.push({ type: 'flash', life: 0.18, maxLife: 0.18, x: target.x, y: target.y, r: 16, color: '#5fe37f' });
+
+      let chain = null, chainDist = cfg.chainRange;
+      for (const e of this.enemies) {
+        if (e === target || e.dead || e.reachedEnd) continue;
+        const d = Math.hypot(e.x - target.x, e.y - target.y);
+        if (d <= chainDist) { chainDist = d; chain = e; }
+      }
+      if (chain) {
+        chain.takeDamage(damage * cfg.chainFalloff);
+        chain.applySlow(cfg.slow * 0.7, cfg.slowDuration * 0.7);
+        this.effects.push({ type: 'lightning', life: 0.16, maxLife: 0.16, points: jaggedPoints(target.x, target.y, chain.x, chain.y, 5, 12), color: '#fff8dc', glow: '#5fe37f' });
+        this.effects.push({ type: 'flash', life: 0.18, maxLife: 0.18, x: chain.x, y: chain.y, r: 12, color: '#5fe37f' });
+      }
+    },
+
     updateCeo(dt) {
-      if (this.ceoAbilityCooldown > 0) this.ceoAbilityCooldown = Math.max(0, this.ceoAbilityCooldown - dt * 1000);
-      if (this.ceoBuffTimer > 0) this.ceoBuffTimer = Math.max(0, this.ceoBuffTimer - dt * 1000);
+      const dtMs = dt * 1000;
+      if (this.ceoAllHandsCooldown > 0) this.ceoAllHandsCooldown = Math.max(0, this.ceoAllHandsCooldown - dtMs);
+      if (this.ceoBonusesCooldown > 0) this.ceoBonusesCooldown = Math.max(0, this.ceoBonusesCooldown - dtMs);
+      if (this.ceoFixBugsCooldown > 0) this.ceoFixBugsCooldown = Math.max(0, this.ceoFixBugsCooldown - dtMs);
+      if (this.ceoBonusesTimer > 0) this.ceoBonusesTimer = Math.max(0, this.ceoBonusesTimer - dtMs);
+      this.updateCeoAllHands(dt);
+      this.updateCeoFixBugs(dt);
 
       if (this.budget >= 0) {
         this.ceoIncomeTimer += dt * 1000;
@@ -268,13 +432,20 @@
         const hit = this.hitTest(x, y);
 
         if (hit && hit.type === 'ceo') {
-          this.useCeoAbility();
+          this.selectedTower = null; window.Game.UI.updateUpgradePanel();
+          this.pendingHireDesk = null; window.Game.UI.showHirePanel(null);
+          // A second click on him closes the menu again, same toggle feel
+          // clicking an already-selected tower doesn't have, but fits a
+          // menu better than a persistent one-way-open popup would.
+          this.ceoMenuOpen = !this.ceoMenuOpen;
+          window.Game.UI.showCeoAbilityPanel(this.ceoMenuOpen);
           return;
         }
 
         if (hit && hit.type === 'tower') {
           this.pendingHireDesk = null;
           window.Game.UI.showHirePanel(null);
+          this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
           this.selectedTower = hit.tower;
           window.Game.UI.updateUpgradePanel();
           return;
@@ -282,6 +453,7 @@
 
         if (hit && hit.type === 'coffee') {
           this.selectedTower = null; window.Game.UI.updateUpgradePanel();
+          this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
           this.pendingHireDesk = CFG.COFFEE_SPOT;
           window.Game.UI.showHirePanel(CFG.COFFEE_SPOT, ['coffee']);
           return;
@@ -289,6 +461,7 @@
 
         if (hit && hit.type === 'desk') {
           this.selectedTower = null; window.Game.UI.updateUpgradePanel();
+          this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
           this.pendingHireDesk = hit.desk;
           window.Game.UI.showHirePanel(hit.desk);
           return;
@@ -296,6 +469,7 @@
 
         this.selectedTower = null; window.Game.UI.updateUpgradePanel();
         this.pendingHireDesk = null; window.Game.UI.showHirePanel(null);
+        this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
       };
 
       // A tap must survive a real down-then-up with (near-)zero movement in
@@ -498,9 +672,10 @@
         return dx * dx + dy * dy < 1;
       };
 
-      // The CEO is checked first — clicking him triggers useCeoAbility()
-      // directly (see runTap below), the deliberate replacement for a HUD
-      // button so the ability feels like it comes from him, not a menu.
+      // The CEO is checked first — clicking him opens his 3-ability menu
+      // (see runTap below), the deliberate replacement for a HUD button so
+      // the abilities feel like they come from him, styled like the
+      // existing hire/upgrade popups rather than a persistent HUD control.
       const anchor = PATH.ceoAnchor;
       if (inSpriteHitbox(anchor.x, anchor.y)) return { type: 'ceo' };
 
@@ -613,6 +788,10 @@
         if (src.type !== 'coffee' || src.stunTimer > 0) continue;
         best = Math.max(best, src.auraDmgMultValue);
       }
+      // The CEO's "Distribute Bonuses" ability folds into the same hook
+      // every tower already reads for the coffee machine's aura — no
+      // Tower changes needed.
+      if (this.ceoBonusesTimer > 0) best = Math.max(best, this.ceoBonusesDmgMult);
       return best;
     },
     auraRateMultFor() {
@@ -621,9 +800,7 @@
         if (src.type !== 'coffee' || src.stunTimer > 0) continue;
         best = Math.min(best, src.auraRateMultValue);
       }
-      // The CEO's "All-Hands" ability folds into the same hook every tower
-      // already reads for the coffee machine's aura — no Tower changes needed.
-      if (this.ceoBuffTimer > 0) best = Math.min(best, CFG.CEO.abilityBuffFireRateMult);
+      if (this.ceoBonusesTimer > 0) best = Math.min(best, this.ceoBonusesFireRateMult);
       return best;
     },
 
@@ -809,14 +986,17 @@
       this.pendingAcquisitionPrice = null;
       this.gameOverReason = 'bankrupt';
       this.stats = { income: 0, salaries: 0, lost: 0, kills: 0, ceoGender: this.ceoGender, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0 };
-      this.ceoAbilityCooldown = 0;
-      this.ceoBuffTimer = 0;
       this.ceoIncomeTimer = 0;
+      this.ceoMenuOpen = false;
+      this.ceoAllHandsCooldown = 0; this.ceoAllHandsCooldownTotal = 1; this.ceoAllHandsTimer = 0; this.ceoAllHandsTickTimer = 0; this.ceoAllHandsDamage = 0;
+      this.ceoBonusesCooldown = 0; this.ceoBonusesCooldownTotal = 1; this.ceoBonusesTimer = 0; this.ceoBonusesDmgMult = 1; this.ceoBonusesFireRateMult = 1;
+      this.ceoFixBugsCooldown = 0; this.ceoFixBugsCooldownTotal = 1; this.ceoFixBugsTimer = 0; this.ceoFixBugsFireCooldown = 0; this.ceoFixBugsDamage = 0; this.ceoFixBugsRange = 0;
       Object.keys(this.cardCooldowns).forEach(k => (this.cardCooldowns[k] = 0));
       this.waves = new WaveManager();
       this.state = 'playing';
       window.Game.UI.updateUpgradePanel();
       window.Game.UI.showHirePanel(null);
+      window.Game.UI.showCeoAbilityPanel(false);
       window.Game.UI.showScreen(null);
       window.Game.UI.updateHUD();
       window.Game.Leaderboard.runStart();
@@ -825,6 +1005,8 @@
     gameOver(reason = 'bankrupt') {
       this.state = 'gameover';
       this.gameOverReason = reason;
+      this.ceoMenuOpen = false;
+      window.Game.UI.showCeoAbilityPanel(false);
       this.lastReachedSprint = Math.max(1, this.waves.displayWaveNumber);
       if (this.lastReachedSprint > this.bestSprint) { this.bestSprint = this.lastReachedSprint; saveBestSprint(this.lastReachedSprint); }
       window.Game.Audio.gameOver();
@@ -911,9 +1093,6 @@
       }
       this.particles = this.particles.filter(p => p.life > 0);
 
-      for (const fx of this.effects) fx.life -= dt;
-      this.effects = this.effects.filter(fx => fx.life > 0);
-
       if (this.shakeTimer > 0) this.shakeTimer -= dt;
 
       // Deferred to the end of the frame rather than checked at each
@@ -932,6 +1111,13 @@
       }
 
       this.updateCeo(dt);
+
+      // Pruned here, after every effect-producing step this frame (towers'
+      // own update() above, and updateCeo's lightning bolts just above) —
+      // an effect pushed by updateCeo must not sit un-decremented for an
+      // extra frame just because it was created after an earlier prune pass.
+      for (const fx of this.effects) fx.life -= dt;
+      this.effects = this.effects.filter(fx => fx.life > 0);
 
       // Same deferred-to-end-of-frame reasoning as the negative-budget check
       // above. Uses an ever-incrementing index (never re-derived from
@@ -962,6 +1148,27 @@
         g.addColorStop(1, 'rgba(176,131,240,0)');
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(tower.x, tower.y, 36, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    },
+
+    // The CEO's "Distribute Bonuses" buff — a small "$" badge hovering
+    // over every hired tower for its duration, same marker style the
+    // empty-desk "+" affordance already uses (see drawDesks).
+    drawBonusMarkers(ctx) {
+      if (this.ceoBonusesTimer <= 0) return;
+      const t = this.gameTime;
+      for (const tower of this.towers) {
+        const pulse = 0.7 + Math.sin(t * 2.2 + tower.x * 0.01) * 0.3;
+        const markerY = tower.y - 70;
+        ctx.save();
+        ctx.shadowColor = '#5fe37f'; ctx.shadowBlur = 8 * pulse;
+        ctx.fillStyle = 'rgba(95,227,127,0.9)';
+        ctx.beginPath(); ctx.arc(tower.x, markerY, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#08150e';
+        ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('$', tower.x, markerY + 1);
         ctx.restore();
       }
     },
@@ -1093,6 +1300,22 @@
           ctx.shadowColor = fx.color; ctx.shadowBlur = 8;
           ctx.fillStyle = fx.color;
           ctx.fillText(fx.text, 0, 0);
+        } else if (fx.type === 'cashFly') {
+          // A "$" traveling from the CEO to a tower (Distribute Bonuses) —
+          // straight-line lerp with a small arc lift, same spirit as
+          // Projectile's 'lob' kind arcing toward its target.
+          const progress = 1 - a;
+          const x = fx.x + (fx.targetX - fx.x) * progress;
+          const y = fx.y + (fx.targetY - fx.y) * progress - Math.sin(Math.PI * progress) * 40;
+          ctx.translate(x, y);
+          ctx.font = 'bold 15px "Arial Black", Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+          ctx.strokeText('$', 0, 0);
+          ctx.shadowColor = '#5fe37f'; ctx.shadowBlur = 8;
+          ctx.fillStyle = '#5fe37f';
+          ctx.fillText('$', 0, 0);
         }
         ctx.restore();
       }
@@ -1142,6 +1365,7 @@
       window.Game.Camera.applyTransform(ctx);
       PATH.drawBackground(ctx);
       this.drawAuraCircles(ctx);
+      this.drawBonusMarkers(ctx);
       this.drawDesks(ctx);
 
       const hoveredTower = this.hoverTarget && this.hoverTarget.type === 'tower' ? this.hoverTarget.tower : null;
@@ -1191,6 +1415,7 @@
         window.Game.UI.positionUpgradePanel(this.selectedTower, canvas);
       }
       if (this.pendingHireDesk) window.Game.UI.refreshHirePanel();
+      if (this.ceoMenuOpen) { window.Game.UI.refreshCeoAbilityPanel(); window.Game.UI.positionCeoAbilityPanel(canvas); }
       requestAnimationFrame(this.loop.bind(this));
     }
   };

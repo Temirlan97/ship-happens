@@ -192,47 +192,41 @@ describe('Core.ceoDisplayName', () => {
   });
 });
 
-describe('Core.useCeoAbility', () => {
+describe('Core.useCeoAllHands', () => {
   beforeEach(() => { Core.state = 'playing'; });
 
   it('does nothing while budget is negative', () => {
     Core.budget = -1;
-    Core.useCeoAbility();
+    Core.useCeoAllHands();
     expect(Core.stats.ceoAbilityUses).toBe(0);
-    expect(Core.ceoBuffTimer).toBe(0);
+    expect(Core.ceoAllHandsTimer).toBe(0);
   });
 
   it('does nothing while on cooldown', () => {
     Core.budget = 1000;
-    Core.ceoAbilityCooldown = 5000;
-    Core.useCeoAbility();
+    Core.ceoAllHandsCooldown = 5000;
+    Core.useCeoAllHands();
     expect(Core.stats.ceoAbilityUses).toBe(0);
   });
 
   it('does nothing outside the playing state', () => {
     Core.state = 'paused';
     Core.budget = 1000;
-    Core.useCeoAbility();
+    Core.useCeoAllHands();
     expect(Core.stats.ceoAbilityUses).toBe(0);
   });
 
-  it('damages enemies within radius, leaves far ones untouched, and sets buff/cooldown/use-count', () => {
+  it('sets the channel timer/damage snapshot, cooldown, and use-count from the current CEO state', () => {
     Core.budget = 1000;
-    const anchor = PATH.ceoAnchor;
-    const near = new Entities.Enemy('bug', PATH.waypoints, 0);
-    near.x = anchor.x + 10; near.y = anchor.y;
-    const nearHpBefore = near.hp;
-    const far = new Entities.Enemy('bug', PATH.waypoints, 0);
-    far.x = anchor.x + CFG.CEO.abilityRadius + 500; far.y = anchor.y;
-    const farHpBefore = far.hp;
-    Core.enemies = [near, far];
+    const stateIndex = Core.ceoStateIndex;
+    const cfg = CFG.CEO.abilities.allHands;
 
-    Core.useCeoAbility();
+    Core.useCeoAllHands();
 
-    expect(near.hp).toBeLessThan(nearHpBefore);
-    expect(far.hp).toBe(farHpBefore);
-    expect(Core.ceoBuffTimer).toBe(CFG.CEO.abilityBuffDurationMs);
-    expect(Core.ceoAbilityCooldown).toBeGreaterThan(0);
+    expect(Core.ceoAllHandsTimer).toBe(cfg.durationByState[stateIndex]);
+    expect(Core.ceoAllHandsDamage).toBe(cfg.damageByState[stateIndex]);
+    expect(Core.ceoAllHandsCooldown).toBeGreaterThan(0);
+    expect(Core.ceoAllHandsCooldown).toBe(Core.ceoAllHandsCooldownTotal);
     expect(Core.stats.ceoAbilityUses).toBe(1);
   });
 
@@ -242,22 +236,22 @@ describe('Core.useCeoAbility', () => {
     const payroll = Core.projectedPayroll;
 
     Core.budget = payroll * 3; // ratio 1, healthiest possible
-    Core.useCeoAbility();
-    const healthyCooldown = Core.ceoAbilityCooldown;
+    Core.useCeoAllHands();
+    const healthyCooldown = Core.ceoAllHandsCooldown;
 
-    Core.ceoAbilityCooldown = 0;
+    Core.ceoAllHandsCooldown = 0;
     Core.budget = payroll * 0.3; // struggling but not negative
-    Core.useCeoAbility();
-    const struggleCooldown = Core.ceoAbilityCooldown;
+    Core.useCeoAllHands();
+    const struggleCooldown = Core.ceoAllHandsCooldown;
 
-    expect(healthyCooldown).toBeCloseTo(CFG.CEO.abilityCooldownMinMs, 6);
+    expect(healthyCooldown).toBeCloseTo(CFG.CEO.abilities.allHands.cooldownMinMs, 6);
     expect(healthyCooldown).toBeLessThan(struggleCooldown);
   });
 
-  it('spawns the grand effect (rings, flash, screen banner) and plays the fanfare, not the old funding-round cue', () => {
+  it('spawns the grand cast effect (rings, flash, screen banner) and plays the fanfare', () => {
     Core.budget = 1000;
     const before = Core.effects.length;
-    Core.useCeoAbility();
+    Core.useCeoAllHands();
     const added = Core.effects.slice(before);
     expect(added.filter((fx) => fx.type === 'ring')).toHaveLength(3);
     expect(added.some((fx) => fx.type === 'flash')).toBe(true);
@@ -265,17 +259,35 @@ describe('Core.useCeoAbility', () => {
   });
 });
 
-describe('Core.useCeoAbility — enemy loop edge cases', () => {
+describe('Core.updateCeoAllHands — channeled bug-only damage', () => {
   beforeEach(() => { Core.state = 'playing'; Core.budget = 1000; });
 
-  it('does not throw and still sets buff/cooldown/use-count with zero enemies', () => {
+  it('does not throw and still sets cooldown/use-count with zero enemies', () => {
     Core.enemies = [];
-    expect(() => Core.useCeoAbility()).not.toThrow();
+    expect(() => Core.useCeoAllHands()).not.toThrow();
     expect(Core.stats.ceoAbilityUses).toBe(1);
-    expect(Core.ceoBuffTimer).toBe(CFG.CEO.abilityBuffDurationMs);
+    expect(Core.ceoAllHandsTimer).toBeGreaterThan(0);
   });
 
-  it('skips dead and reachedEnd enemies even when they sit inside the radius', () => {
+  it('damages bugs on each tick while channeling, and leaves non-bug enemies untouched', () => {
+    const anchor = PATH.ceoAnchor;
+    const bug = new Entities.Enemy('bug', PATH.waypoints, 0);
+    bug.x = anchor.x + 500; bug.y = anchor.y; // distance is irrelevant — map-wide
+    const bugHpBefore = bug.hp;
+    const rival = new Entities.Enemy('competitor', PATH.waypoints, 0);
+    rival.x = anchor.x; rival.y = anchor.y;
+    const rivalHpBefore = rival.hp;
+    Core.enemies = [bug, rival];
+
+    Core.useCeoAllHands();
+    const cfg = CFG.CEO.abilities.allHands;
+    Core.updateCeoAllHands(cfg.tickIntervalMs / 1000);
+
+    expect(bug.hp).toBeLessThan(bugHpBefore);
+    expect(rival.hp).toBe(rivalHpBefore);
+  });
+
+  it('skips dead and reachedEnd bugs even though they are still in the enemies array', () => {
     const anchor = PATH.ceoAnchor;
     const dead = new Entities.Enemy('bug', PATH.waypoints, 0);
     dead.x = anchor.x; dead.y = anchor.y; dead.dead = true;
@@ -285,10 +297,340 @@ describe('Core.useCeoAbility — enemy loop edge cases', () => {
     const endedHpBefore = ended.hp;
     Core.enemies = [dead, ended];
 
-    Core.useCeoAbility();
+    Core.useCeoAllHands();
+    const cfg = CFG.CEO.abilities.allHands;
+    Core.updateCeoAllHands(cfg.tickIntervalMs / 1000);
 
     expect(dead.hp).toBe(deadHpBefore);
     expect(ended.hp).toBe(endedHpBefore);
+  });
+
+  it('stops ticking once the channel duration elapses', () => {
+    const anchor = PATH.ceoAnchor;
+    const bug = new Entities.Enemy('bug', PATH.waypoints, 0);
+    bug.x = anchor.x; bug.y = anchor.y;
+    Core.enemies = [bug];
+
+    Core.useCeoAllHands();
+    Core.updateCeoAllHands(Core.ceoAllHandsTimer / 1000 + 1);
+    expect(Core.ceoAllHandsTimer).toBe(0);
+
+    const hpAfterChannelEnds = bug.hp;
+    Core.updateCeoAllHands(5);
+    expect(bug.hp).toBe(hpAfterChannelEnds);
+  });
+
+  it('does not strike anything on a sub-tick-interval frame, only once accumulated time reaches tickIntervalMs', () => {
+    const anchor = PATH.ceoAnchor;
+    const bug = new Entities.Enemy('bug', PATH.waypoints, 0);
+    bug.x = anchor.x; bug.y = anchor.y;
+    Core.enemies = [bug];
+
+    Core.useCeoAllHands();
+    const cfg = CFG.CEO.abilities.allHands;
+    const hpBefore = bug.hp;
+    Core.updateCeoAllHands((cfg.tickIntervalMs / 1000) * 0.3); // well under one tick
+    expect(bug.hp).toBe(hpBefore);
+  });
+});
+
+describe('Core.useCeoBonuses', () => {
+  beforeEach(() => { Core.state = 'playing'; });
+
+  it('does nothing while budget is negative', () => {
+    Core.budget = -1;
+    Core.useCeoBonuses();
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+    expect(Core.ceoBonusesTimer).toBe(0);
+  });
+
+  it('does nothing while on cooldown', () => {
+    Core.budget = 1000;
+    Core.ceoBonusesCooldown = 5000;
+    Core.useCeoBonuses();
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+
+  it('does nothing outside the playing state', () => {
+    Core.state = 'paused';
+    Core.budget = 1000;
+    Core.useCeoBonuses();
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+
+  it('sets the buff timer/multiplier snapshot, cooldown, and use-count from the current CEO state', () => {
+    Core.budget = 1000;
+    const stateIndex = Core.ceoStateIndex;
+    const cfg = CFG.CEO.abilities.bonuses;
+
+    Core.useCeoBonuses();
+
+    expect(Core.ceoBonusesTimer).toBe(cfg.durationByState[stateIndex]);
+    expect(Core.ceoBonusesDmgMult).toBe(cfg.dmgMultByState[stateIndex]);
+    expect(Core.ceoBonusesFireRateMult).toBe(cfg.fireRateMultByState[stateIndex]);
+    expect(Core.ceoBonusesCooldown).toBeGreaterThan(0);
+    expect(Core.ceoBonusesCooldown).toBe(Core.ceoBonusesCooldownTotal);
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+  });
+
+  it('gives a shorter cooldown the healthier the runway ratio', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    const payroll = Core.projectedPayroll;
+
+    Core.budget = payroll * 3;
+    Core.useCeoBonuses();
+    const healthyCooldown = Core.ceoBonusesCooldown;
+
+    Core.ceoBonusesCooldown = 0;
+    Core.budget = payroll * 0.3;
+    Core.useCeoBonuses();
+    const struggleCooldown = Core.ceoBonusesCooldown;
+
+    expect(healthyCooldown).toBeCloseTo(CFG.CEO.abilities.bonuses.cooldownMinMs, 6);
+    expect(healthyCooldown).toBeLessThan(struggleCooldown);
+  });
+
+  it('spawns one flying cashFly effect per hired tower, none when there are no towers', () => {
+    Core.budget = 1000;
+    Core.towers = [];
+    const before = Core.effects.length;
+    Core.useCeoBonuses();
+    expect(Core.effects.slice(before).filter((fx) => fx.type === 'cashFly')).toHaveLength(0);
+
+    Core.restart();
+    Core.state = 'playing';
+    Core.budget = 100000;
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.budget = 1000;
+    const before2 = Core.effects.length;
+    Core.useCeoBonuses();
+    expect(Core.effects.slice(before2).filter((fx) => fx.type === 'cashFly')).toHaveLength(1);
+  });
+});
+
+describe('Core.auraDmgMultFor / auraRateMultFor — Distribute Bonuses buff', () => {
+  beforeEach(() => { Core.state = 'playing'; });
+
+  it('folds the snapshotted bonuses multipliers in while the buff is active', () => {
+    Core.budget = 1000;
+    Core.useCeoBonuses();
+    expect(Core.auraDmgMultFor()).toBe(Core.ceoBonusesDmgMult);
+    expect(Core.auraRateMultFor()).toBe(Core.ceoBonusesFireRateMult);
+  });
+
+  it('is unaffected once the buff expires', () => {
+    Core.ceoBonusesTimer = 0;
+    expect(Core.auraDmgMultFor()).toBe(1);
+    expect(Core.auraRateMultFor()).toBe(1);
+  });
+
+  it('takes whichever effect gives the bigger boost against an active coffee aura', () => {
+    Core.budget = 100000;
+    const cs = CFG.COFFEE_SPOT;
+    Core.hireAt(cs.col, cs.row, 'coffee');
+    Core.useCeoBonuses();
+    const coffeeRateMult = Core.towers[0].auraRateMultValue;
+    const coffeeDmgMult = Core.towers[0].auraDmgMultValue;
+    expect(Core.auraRateMultFor()).toBe(Math.min(coffeeRateMult, Core.ceoBonusesFireRateMult));
+    expect(Core.auraDmgMultFor()).toBe(Math.max(coffeeDmgMult, Core.ceoBonusesDmgMult));
+  });
+
+  it('a stunned coffee machine is excluded, so an active bonuses buff is the only effect applied', () => {
+    Core.budget = 100000;
+    const cs = CFG.COFFEE_SPOT;
+    Core.hireAt(cs.col, cs.row, 'coffee');
+    Core.towers[0].stunTimer = 1000;
+    Core.useCeoBonuses();
+    expect(Core.auraRateMultFor()).toBe(Core.ceoBonusesFireRateMult);
+    expect(Core.auraDmgMultFor()).toBe(Core.ceoBonusesDmgMult);
+  });
+
+  it('neither effect active yields exactly 1 (no towers at all)', () => {
+    Core.towers = [];
+    Core.ceoBonusesTimer = 0;
+    expect(Core.auraRateMultFor()).toBe(1);
+    expect(Core.auraDmgMultFor()).toBe(1);
+  });
+});
+
+describe('Core.useCeoFixBugs', () => {
+  beforeEach(() => { Core.state = 'playing'; });
+
+  it('does nothing while budget is negative', () => {
+    Core.budget = -1;
+    Core.useCeoFixBugs();
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+    expect(Core.ceoFixBugsTimer).toBe(0);
+  });
+
+  it('does nothing while on cooldown', () => {
+    Core.budget = 1000;
+    Core.ceoFixBugsCooldown = 5000;
+    Core.useCeoFixBugs();
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+
+  it('does nothing outside the playing state', () => {
+    Core.state = 'paused';
+    Core.budget = 1000;
+    Core.useCeoFixBugs();
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+
+  it('sets the attack-mode timer/damage/range snapshot, cooldown, and use-count from the current CEO state', () => {
+    Core.budget = 1000;
+    const stateIndex = Core.ceoStateIndex;
+    const cfg = CFG.CEO.abilities.fixBugs;
+
+    Core.useCeoFixBugs();
+
+    expect(Core.ceoFixBugsTimer).toBe(cfg.durationByState[stateIndex]);
+    expect(Core.ceoFixBugsDamage).toBe(cfg.damageByState[stateIndex]);
+    expect(Core.ceoFixBugsRange).toBe(cfg.rangeByState[stateIndex]);
+    expect(Core.ceoFixBugsCooldown).toBeGreaterThan(0);
+    expect(Core.ceoFixBugsCooldown).toBe(Core.ceoFixBugsCooldownTotal);
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+  });
+
+  it('gives a shorter cooldown the healthier the runway ratio', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    const payroll = Core.projectedPayroll;
+
+    Core.budget = payroll * 3;
+    Core.useCeoFixBugs();
+    const healthyCooldown = Core.ceoFixBugsCooldown;
+
+    Core.ceoFixBugsCooldown = 0;
+    Core.budget = payroll * 0.3;
+    Core.useCeoFixBugs();
+    const struggleCooldown = Core.ceoFixBugsCooldown;
+
+    expect(healthyCooldown).toBeCloseTo(CFG.CEO.abilities.fixBugs.cooldownMinMs, 6);
+    expect(healthyCooldown).toBeLessThan(struggleCooldown);
+  });
+});
+
+describe('Core.updateCeoFixBugs — furthest-along targeting, chain, and slow', () => {
+  beforeEach(() => { Core.state = 'playing'; Core.budget = 1000; });
+
+  it('does nothing when no enemy is within range', () => {
+    Core.useCeoFixBugs();
+    Core.enemies = [];
+    expect(() => Core.updateCeoFixBugs(1)).not.toThrow();
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+  });
+
+  it('targets the enemy furthest along the path within range, damages and slows it', () => {
+    const anchor = PATH.ceoAnchor;
+    Core.useCeoFixBugs();
+    const near = new Entities.Enemy('bug', PATH.waypoints, 0);
+    near.x = anchor.x; near.y = anchor.y; near.wpIndex = 0;
+    const ahead = new Entities.Enemy('bug', PATH.waypoints, 0);
+    ahead.x = anchor.x; ahead.y = anchor.y; ahead.wpIndex = 3;
+    const ahead0Hp = ahead.hp;
+    Core.enemies = [near, ahead];
+
+    Core.updateCeoFixBugs(0);
+
+    expect(ahead.hp).toBeLessThan(ahead0Hp);
+    expect(ahead.slowFactor).toBeGreaterThan(0);
+  });
+
+  it('ignores enemies outside range', () => {
+    const anchor = PATH.ceoAnchor;
+    Core.useCeoFixBugs();
+    const far = new Entities.Enemy('bug', PATH.waypoints, 0);
+    far.x = anchor.x + Core.ceoFixBugsRange + 1000; far.y = anchor.y;
+    const farHpBefore = far.hp;
+    Core.enemies = [far];
+
+    Core.updateCeoFixBugs(0);
+
+    expect(far.hp).toBe(farHpBefore);
+  });
+
+  it('skips dead and reachedEnd enemies in the targeting loop even when they sit right on top of the CEO', () => {
+    const anchor = PATH.ceoAnchor;
+    Core.useCeoFixBugs();
+    const dead = new Entities.Enemy('bug', PATH.waypoints, 0);
+    dead.x = anchor.x; dead.y = anchor.y; dead.dead = true;
+    const deadHpBefore = dead.hp;
+    const ended = new Entities.Enemy('bug', PATH.waypoints, 0);
+    ended.x = anchor.x; ended.y = anchor.y; ended.reachedEnd = true;
+    const endedHpBefore = ended.hp;
+    Core.enemies = [dead, ended];
+
+    Core.updateCeoFixBugs(0);
+
+    expect(dead.hp).toBe(deadHpBefore);
+    expect(ended.hp).toBe(endedHpBefore);
+  });
+
+  it('chains to one nearby enemy with falloff damage', () => {
+    const anchor = PATH.ceoAnchor;
+    Core.useCeoFixBugs();
+    const cfg = CFG.CEO.abilities.fixBugs;
+    const primary = new Entities.Enemy('bug', PATH.waypoints, 0);
+    primary.x = anchor.x; primary.y = anchor.y; primary.wpIndex = 3;
+    const chainTarget = new Entities.Enemy('bug', PATH.waypoints, 0);
+    chainTarget.x = primary.x + cfg.chainRange - 5; chainTarget.y = primary.y; chainTarget.wpIndex = 0;
+    const chainHpBefore = chainTarget.hp;
+    Core.enemies = [primary, chainTarget];
+
+    Core.updateCeoFixBugs(0);
+
+    expect(chainTarget.hp).toBeLessThan(chainHpBefore);
+    expect(chainTarget.hp).toBeGreaterThan(chainHpBefore - Core.ceoFixBugsDamage);
+  });
+
+  it('picks the closer of two chain candidates, leaving the farther one (outside the running chainDist) untouched', () => {
+    const anchor = PATH.ceoAnchor;
+    Core.useCeoFixBugs();
+    const cfg = CFG.CEO.abilities.fixBugs;
+    const primary = new Entities.Enemy('bug', PATH.waypoints, 0);
+    primary.x = anchor.x; primary.y = anchor.y; primary.wpIndex = 3;
+    const closeChain = new Entities.Enemy('bug', PATH.waypoints, 0);
+    closeChain.x = primary.x + 5; closeChain.y = primary.y; closeChain.wpIndex = 0;
+    const closeChainHpBefore = closeChain.hp;
+    const farChain = new Entities.Enemy('bug', PATH.waypoints, 0);
+    farChain.x = primary.x + cfg.chainRange - 10; farChain.y = primary.y; farChain.wpIndex = 0;
+    const farChainHpBefore = farChain.hp;
+    Core.enemies = [primary, closeChain, farChain];
+
+    Core.updateCeoFixBugs(0);
+
+    expect(closeChain.hp).toBeLessThan(closeChainHpBefore);
+    expect(farChain.hp).toBe(farChainHpBefore);
+  });
+
+  it('is gated by its own fire-rate cooldown between shots', () => {
+    const anchor = PATH.ceoAnchor;
+    Core.useCeoFixBugs();
+    const target = new Entities.Enemy('bug', PATH.waypoints, 0);
+    target.x = anchor.x; target.y = anchor.y;
+    Core.enemies = [target];
+
+    Core.updateCeoFixBugs(0);
+    const hpAfterFirstShot = target.hp;
+    Core.updateCeoFixBugs(0);
+    expect(target.hp).toBe(hpAfterFirstShot);
+  });
+
+  it('stops attacking once the attack-mode duration elapses', () => {
+    const anchor = PATH.ceoAnchor;
+    Core.useCeoFixBugs();
+    Core.updateCeoFixBugs(Core.ceoFixBugsTimer / 1000 + 1);
+    expect(Core.ceoFixBugsTimer).toBe(0);
+
+    const target = new Entities.Enemy('bug', PATH.waypoints, 0);
+    target.x = anchor.x; target.y = anchor.y;
+    const hpBefore = target.hp;
+    Core.enemies = [target];
+    Core.updateCeoFixBugs(5);
+    expect(target.hp).toBe(hpBefore);
   });
 });
 
@@ -332,33 +674,133 @@ describe('Core.triggerAllHandsEffect — effect lifecycle does not leak', () => 
     Core.update(5); // more than long enough for everything remaining to expire
     expect(Core.effects).toHaveLength(0);
   });
+
+  it('an effect pushed by updateCeo (via Core.update) is pruned in that SAME call, not left dangling an extra frame (code-review catch)', () => {
+    // Core.update()'s generic effect-decay/prune pass must run AFTER
+    // updateCeo(dt) — the only step that can push new effects — so a
+    // lightning bolt created this frame is subject to this same frame's
+    // decrement, exactly like every other effect-producing step (tower
+    // attacks) already is.
+    Core.state = 'playing';
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    const bug = new Entities.Enemy('bug', PATH.waypoints, 0);
+    bug.x = anchor.x; bug.y = anchor.y;
+    Core.enemies = [bug];
+    Core.useCeoAllHands();
+
+    const cfg = CFG.CEO.abilities.allHands;
+    // dt both crosses the tick interval (so a lightning effect, life 0.16,
+    // gets pushed by updateCeoAllHands during this very call) AND, being
+    // far larger than that effect's own life, would prune it immediately
+    // if the decay pass runs after updateCeo — proving the two run in the
+    // right order within a single Core.update() call.
+    Core.update(cfg.tickIntervalMs / 1000);
+
+    expect(Core.effects.filter((fx) => fx.type === 'lightning')).toHaveLength(0);
+  });
 });
 
-describe('Core.useCeoAbility — repeated calls do not compound/stack', () => {
+describe('CEO abilities — repeated calls do not compound/stack', () => {
   beforeEach(() => { Core.state = 'playing'; });
 
-  it('a second immediate call while on cooldown changes nothing (buff timer does not stack, use-count does not increment)', () => {
+  it('a second immediate All-Hands call while on cooldown changes nothing', () => {
     Core.budget = 1000;
-    Core.useCeoAbility();
-    const buffAfterFirst = Core.ceoBuffTimer;
-    const cooldownAfterFirst = Core.ceoAbilityCooldown;
-    Core.useCeoAbility(); // still on cooldown
-    Core.useCeoAbility();
+    Core.useCeoAllHands();
+    const timerAfterFirst = Core.ceoAllHandsTimer;
+    const cooldownAfterFirst = Core.ceoAllHandsCooldown;
+    Core.useCeoAllHands(); // still on cooldown
+    Core.useCeoAllHands();
     expect(Core.stats.ceoAbilityUses).toBe(1);
-    expect(Core.ceoBuffTimer).toBe(buffAfterFirst);
-    expect(Core.ceoAbilityCooldown).toBe(cooldownAfterFirst);
+    expect(Core.ceoAllHandsTimer).toBe(timerAfterFirst);
+    expect(Core.ceoAllHandsCooldown).toBe(cooldownAfterFirst);
+  });
+
+  it('a second immediate Bonuses call while on cooldown changes nothing', () => {
+    Core.budget = 1000;
+    Core.useCeoBonuses();
+    const timerAfterFirst = Core.ceoBonusesTimer;
+    const cooldownAfterFirst = Core.ceoBonusesCooldown;
+    Core.useCeoBonuses();
+    Core.useCeoBonuses();
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+    expect(Core.ceoBonusesTimer).toBe(timerAfterFirst);
+    expect(Core.ceoBonusesCooldown).toBe(cooldownAfterFirst);
+  });
+
+  it('a second immediate Fix Bugs call while on cooldown changes nothing', () => {
+    Core.budget = 1000;
+    Core.useCeoFixBugs();
+    const timerAfterFirst = Core.ceoFixBugsTimer;
+    const cooldownAfterFirst = Core.ceoFixBugsCooldown;
+    Core.useCeoFixBugs();
+    Core.useCeoFixBugs();
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+    expect(Core.ceoFixBugsTimer).toBe(timerAfterFirst);
+    expect(Core.ceoFixBugsCooldown).toBe(cooldownAfterFirst);
+  });
+
+  it('all 3 abilities can be active independently at once (no mutual exclusion)', () => {
+    Core.budget = 1000;
+    Core.useCeoAllHands();
+    Core.useCeoBonuses();
+    Core.useCeoFixBugs();
+    expect(Core.ceoAllHandsTimer).toBeGreaterThan(0);
+    expect(Core.ceoBonusesTimer).toBeGreaterThan(0);
+    expect(Core.ceoFixBugsTimer).toBeGreaterThan(0);
+    expect(Core.stats.ceoAbilityUses).toBe(3);
   });
 
   it('repeated restart() calls in sequence leave CEO run state cleanly zeroed, not compounded', () => {
     Core.budget = 1000;
-    Core.useCeoAbility();
+    Core.useCeoAllHands();
+    Core.useCeoBonuses();
+    Core.useCeoFixBugs();
     Core.restart();
     Core.restart();
     Core.restart();
-    expect(Core.ceoAbilityCooldown).toBe(0);
-    expect(Core.ceoBuffTimer).toBe(0);
+    expect(Core.ceoAllHandsCooldown).toBe(0);
+    expect(Core.ceoAllHandsTimer).toBe(0);
+    expect(Core.ceoBonusesCooldown).toBe(0);
+    expect(Core.ceoBonusesTimer).toBe(0);
+    expect(Core.ceoFixBugsCooldown).toBe(0);
+    expect(Core.ceoFixBugsTimer).toBe(0);
     expect(Core.stats.ceoAbilityUses).toBe(0);
     expect(Core.ceoIncomeTimer).toBe(0);
+  });
+});
+
+describe('Core.updateCeo — per-ability cooldown/timer decrement', () => {
+  beforeEach(() => { Core.state = 'playing'; Core.budget = 1000; });
+
+  it('counts down all 3 cooldowns and the bonuses buff timer together via a single updateCeo call', () => {
+    Core.useCeoAllHands();
+    Core.useCeoBonuses();
+    Core.useCeoFixBugs();
+    const allHandsBefore = Core.ceoAllHandsCooldown;
+    const bonusesBefore = Core.ceoBonusesCooldown;
+    const fixBugsBefore = Core.ceoFixBugsCooldown;
+    const bonusesTimerBefore = Core.ceoBonusesTimer;
+
+    Core.updateCeo(0.5);
+
+    expect(Core.ceoAllHandsCooldown).toBeLessThan(allHandsBefore);
+    expect(Core.ceoBonusesCooldown).toBeLessThan(bonusesBefore);
+    expect(Core.ceoFixBugsCooldown).toBeLessThan(fixBugsBefore);
+    expect(Core.ceoBonusesTimer).toBeLessThan(bonusesTimerBefore);
+  });
+
+  it('clamps every cooldown/timer at 0, never going negative on a large dt', () => {
+    Core.useCeoAllHands();
+    Core.useCeoBonuses();
+    Core.useCeoFixBugs();
+
+    Core.updateCeo(1000);
+
+    expect(Core.ceoAllHandsCooldown).toBe(0);
+    expect(Core.ceoBonusesCooldown).toBe(0);
+    expect(Core.ceoFixBugsCooldown).toBe(0);
+    expect(Core.ceoBonusesTimer).toBe(0);
   });
 });
 
@@ -478,58 +920,27 @@ describe('Core.update — Crisis-entry toast', () => {
   });
 });
 
-describe('Core.auraRateMultFor with an active CEO buff', () => {
-  it('folds the ability buff multiplier in, same hook the coffee aura already uses', () => {
-    Core.ceoBuffTimer = 1000;
-    expect(Core.auraRateMultFor()).toBe(CFG.CEO.abilityBuffFireRateMult);
-  });
-
-  it('is unaffected once the buff expires', () => {
-    Core.ceoBuffTimer = 0;
-    expect(Core.auraRateMultFor()).toBe(1);
-  });
-
-  it('takes whichever effect gives the bigger speed boost (the smaller multiplier)', () => {
-    Core.budget = 100000; // coffee machine costs more than START_BUDGET
-    const cs = CFG.COFFEE_SPOT;
-    Core.hireAt(cs.col, cs.row, 'coffee');
-    Core.ceoBuffTimer = 1000;
-    const coffeeMult = Core.towers[0].auraRateMultValue;
-    expect(Core.auraRateMultFor()).toBe(Math.min(coffeeMult, CFG.CEO.abilityBuffFireRateMult));
-  });
-});
-
-describe('Core.auraRateMultFor — CEO buff + coffee aura interaction', () => {
-  it('a stunned coffee machine is excluded, so an active CEO buff is the only effect applied', () => {
+describe('Core.auraRateMultFor — coffee aura with no active bonuses buff', () => {
+  it('an active coffee aura with no bonuses buff yields just the coffee multiplier', () => {
+    Core.state = 'playing';
     Core.budget = 100000;
     const cs = CFG.COFFEE_SPOT;
     Core.hireAt(cs.col, cs.row, 'coffee');
-    Core.towers[0].stunTimer = 1000; // stunned -> excluded from the aura loop
-    Core.ceoBuffTimer = 1000;
-    expect(Core.auraRateMultFor()).toBe(CFG.CEO.abilityBuffFireRateMult);
-  });
-
-  it('an active coffee aura with no CEO buff yields just the coffee multiplier', () => {
-    Core.budget = 100000;
-    const cs = CFG.COFFEE_SPOT;
-    Core.hireAt(cs.col, cs.row, 'coffee');
-    Core.ceoBuffTimer = 0;
+    Core.ceoBonusesTimer = 0;
     const coffeeMult = Core.towers[0].auraRateMultValue;
     expect(Core.auraRateMultFor()).toBe(coffeeMult);
-  });
-
-  it('neither effect active yields exactly 1 (no towers at all)', () => {
-    Core.towers = [];
-    Core.ceoBuffTimer = 0;
-    expect(Core.auraRateMultFor()).toBe(1);
   });
 });
 
 describe('Core.restart resets CEO run state but keeps the identity preferences', () => {
   it('resets ability/buff/income timers and per-run stats, keeps gender/name', () => {
     Core.confirmIdentity('Ada', 'female');
-    Core.ceoAbilityCooldown = 5000;
-    Core.ceoBuffTimer = 2000;
+    Core.ceoAllHandsCooldown = 5000;
+    Core.ceoAllHandsTimer = 3000;
+    Core.ceoBonusesCooldown = 5000;
+    Core.ceoBonusesTimer = 2000;
+    Core.ceoFixBugsCooldown = 5000;
+    Core.ceoFixBugsTimer = 2000;
     Core.stats.ceoAbilityUses = 3;
     Core.stats.ceoCrisisMs = 4000;
     Core.stats.ceoPeakState = 5;
@@ -539,10 +950,41 @@ describe('Core.restart resets CEO run state but keeps the identity preferences',
     expect(Core.ceoGender).toBe('female');
     expect(Core.ceoName).toBe('Ada');
     expect(Core.stats.ceoGender).toBe('female');
-    expect(Core.ceoAbilityCooldown).toBe(0);
-    expect(Core.ceoBuffTimer).toBe(0);
+    expect(Core.ceoAllHandsCooldown).toBe(0);
+    expect(Core.ceoAllHandsTimer).toBe(0);
+    expect(Core.ceoBonusesCooldown).toBe(0);
+    expect(Core.ceoBonusesTimer).toBe(0);
+    expect(Core.ceoFixBugsCooldown).toBe(0);
+    expect(Core.ceoFixBugsTimer).toBe(0);
     expect(Core.stats.ceoAbilityUses).toBe(0);
     expect(Core.stats.ceoCrisisMs).toBe(0);
     expect(Core.stats.ceoPeakState).toBe(0);
+  });
+
+  it('closes a still-open ability menu instead of leaving it floating over the fresh run (code-review catch)', () => {
+    Game.UI.init(Core);
+    Core.ceoMenuOpen = true;
+    Game.UI.showCeoAbilityPanel(true);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(false);
+
+    Core.restart();
+
+    expect(Core.ceoMenuOpen).toBe(false);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
+  });
+});
+
+describe('Core.gameOver closes a still-open ability menu (code-review catch)', () => {
+  it('hides the panel and clears ceoMenuOpen so it cannot reappear stuck behind the game-over screen', () => {
+    Game.UI.init(Core);
+    Core.state = 'playing';
+    Core.ceoMenuOpen = true;
+    Game.UI.showCeoAbilityPanel(true);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(false);
+
+    Core.gameOver('bankrupt');
+
+    expect(Core.ceoMenuOpen).toBe(false);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
   });
 });
