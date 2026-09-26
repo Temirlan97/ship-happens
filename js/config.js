@@ -205,9 +205,10 @@
 
       abilities: {
         // A channeled effect, not an instant burst — while active, strikes
-        // EVERY currently-alive bug (only bugs, not competitors/incidents)
-        // once per tick. The one-time "grand" cast flourish (shake/rings/
-        // flash/banner/fanfare) still fires once on cast, same as before.
+        // EVERY currently-alive enemy on the board (bugs, competitors, AND
+        // incidents) once per tick. The one-time "grand" cast flourish
+        // (shake/rings/flash/banner/fanfare) still fires once on cast, same
+        // as before.
         allHands: {
           cooldownMinMs: 18000,
           cooldownMaxMs: 60000,

@@ -259,7 +259,7 @@ describe('Core.useCeoAllHands', () => {
   });
 });
 
-describe('Core.updateCeoAllHands — channeled bug-only damage', () => {
+describe('Core.updateCeoAllHands — channeled all-enemy damage', () => {
   beforeEach(() => { Core.state = 'playing'; Core.budget = 1000; });
 
   it('does not throw and still sets cooldown/use-count with zero enemies', () => {
@@ -269,7 +269,7 @@ describe('Core.updateCeoAllHands — channeled bug-only damage', () => {
     expect(Core.ceoAllHandsTimer).toBeGreaterThan(0);
   });
 
-  it('damages bugs on each tick while channeling, and leaves non-bug enemies untouched', () => {
+  it('damages every enemy type on each tick while channeling — bugs, competitors, AND incidents (a true "all hands", not bug-triage-only)', () => {
     const anchor = PATH.ceoAnchor;
     const bug = new Entities.Enemy('bug', PATH.waypoints, 0);
     bug.x = anchor.x + 500; bug.y = anchor.y; // distance is irrelevant — map-wide
@@ -277,22 +277,26 @@ describe('Core.updateCeoAllHands — channeled bug-only damage', () => {
     const rival = new Entities.Enemy('competitor', PATH.waypoints, 0);
     rival.x = anchor.x; rival.y = anchor.y;
     const rivalHpBefore = rival.hp;
-    Core.enemies = [bug, rival];
+    const incident = new Entities.Enemy('incident', PATH.waypoints, 0);
+    incident.x = anchor.x - 300; incident.y = anchor.y + 100;
+    const incidentHpBefore = incident.hp;
+    Core.enemies = [bug, rival, incident];
 
     Core.useCeoAllHands();
     const cfg = CFG.CEO.abilities.allHands;
     Core.updateCeoAllHands(cfg.tickIntervalMs / 1000);
 
     expect(bug.hp).toBeLessThan(bugHpBefore);
-    expect(rival.hp).toBe(rivalHpBefore);
+    expect(rival.hp).toBeLessThan(rivalHpBefore);
+    expect(incident.hp).toBeLessThan(incidentHpBefore);
   });
 
-  it('skips dead and reachedEnd bugs even though they are still in the enemies array', () => {
+  it('skips dead and reachedEnd enemies of any type even though they are still in the enemies array', () => {
     const anchor = PATH.ceoAnchor;
     const dead = new Entities.Enemy('bug', PATH.waypoints, 0);
     dead.x = anchor.x; dead.y = anchor.y; dead.dead = true;
     const deadHpBefore = dead.hp;
-    const ended = new Entities.Enemy('bug', PATH.waypoints, 0);
+    const ended = new Entities.Enemy('competitor', PATH.waypoints, 0);
     ended.x = anchor.x; ended.y = anchor.y; ended.reachedEnd = true;
     const endedHpBefore = ended.hp;
     Core.enemies = [dead, ended];

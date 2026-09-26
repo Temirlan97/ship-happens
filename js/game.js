@@ -307,8 +307,9 @@
     },
 
     // Channeled: every tickIntervalMs while active, strike every currently
-    // -alive bug (only bugs — not competitors/incidents) with a lightning
-    // bolt from the CEO. Damage was fixed at cast time (see useCeoAllHands).
+    // -alive enemy on the board (bugs, competitors, AND incidents — a true
+    // "all hands" response, not bug-triage-only) with a lightning bolt from
+    // the CEO. Damage was fixed at cast time (see useCeoAllHands).
     updateCeoAllHands(dt) {
       if (this.ceoAllHandsTimer <= 0) return;
       this.ceoAllHandsTimer = Math.max(0, this.ceoAllHandsTimer - dt * 1000);
@@ -319,7 +320,7 @@
       const anchor = PATH.ceoAnchor;
       let struck = false;
       for (const e of this.enemies) {
-        if (e.dead || e.reachedEnd || e.type !== 'bug') continue;
+        if (e.dead || e.reachedEnd) continue;
         e.takeDamage(this.ceoAllHandsDamage);
         this.effects.push({ type: 'lightning', life: 0.16, maxLife: 0.16, points: jaggedPoints(anchor.x, anchor.y - 20, e.x, e.y, 6, 14), color: '#fff8dc', glow: '#ffd76b' });
         struck = true;
@@ -1208,12 +1209,21 @@
       }
     },
 
-    // Small procedural cup silhouette (trapezoid body + handle + steam
-    // wisps) — no emoji, per this project's "no emojis anywhere in the UI"
-    // rule. Shared by the flying 'coffeeFly' effect (drawEffects) and the
-    // persistent per-recipient marker (drawCoffeeMarkers) below so both
-    // use the exact same art.
+    // The same real coffee-cup art already used as the CEO's own "Growing"
+    // wealth-tier decoration (see path.js's CEO_PROP_KEYS) — reused here
+    // rather than a thin procedural silhouette, which read as too faint/
+    // hard-to-notice at real display size. Shared by the flying
+    // 'coffeeFly' effect (drawEffects) and the persistent per-recipient
+    // marker (drawCoffeeMarkers) below so both use the exact same art.
+    // Falls back to a small procedural cup only if that art hasn't loaded.
     drawCoffeeCup(ctx, x, y, scale) {
+      const img = window.Game.Assets.get('prop_ceo_coffee');
+      if (img) {
+        const h = 30 * scale;
+        const w = h * (img.naturalWidth / img.naturalHeight);
+        ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
+        return;
+      }
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(scale, scale);
