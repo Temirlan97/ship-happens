@@ -154,6 +154,50 @@ describe('clicking the CEO', () => {
     expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
   });
 
+  it('hovering the Fix Bugs card sets ceoRangePreview, hovering off clears it', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    const btn = document.querySelector('#ceoAbilityPanel button[data-key="fixBugs"]');
+    expect(btn).toBeTruthy();
+    btn.dispatchEvent(new window.MouseEvent('pointerenter', { bubbles: true }));
+    expect(Core.ceoRangePreview).toBe(true);
+    btn.dispatchEvent(new window.MouseEvent('pointerleave', { bubbles: true }));
+    expect(Core.ceoRangePreview).toBe(false);
+  });
+
+  it('hovering a non-range card (All-Hands) never sets ceoRangePreview', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    const btn = document.querySelector('#ceoAbilityPanel button[data-key="allHands"]');
+    btn.dispatchEvent(new window.MouseEvent('pointerenter', { bubbles: true }));
+    expect(Core.ceoRangePreview).toBe(false);
+  });
+
+  it('casting Fix Bugs while its card is hovered clears ceoRangePreview along with closing the menu', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    const btn = document.querySelector('#ceoAbilityPanel button[data-key="fixBugs"]');
+    btn.dispatchEvent(new window.MouseEvent('pointerenter', { bubbles: true }));
+    expect(Core.ceoRangePreview).toBe(true);
+    btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(Core.ceoRangePreview).toBe(false);
+  });
+
+  it('closing the menu by clicking elsewhere clears a stuck ceoRangePreview even without a pointerleave', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    const btn = document.querySelector('#ceoAbilityPanel button[data-key="fixBugs"]');
+    btn.dispatchEvent(new window.MouseEvent('pointerenter', { bubbles: true }));
+    expect(Core.ceoRangePreview).toBe(true);
+    const empty = PATH.cellCenter(6, 0);
+    click(empty.x, empty.y); // closes the menu without ever firing pointerleave on the removed button
+    expect(Core.ceoRangePreview).toBe(false);
+  });
+
   // hitTest's screen-space hitbox is RX=32,RY=55,LIFT=30 (see js/game.js),
   // so it reaches at most ~55+30=85px from a sprite's ground anchor in any
   // direction. Measured (at this file's 1600x1000/zoom-1 layout) the

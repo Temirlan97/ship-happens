@@ -94,34 +94,104 @@ describe('Coffee Machine aura strength (auraDmgMultValue / auraRateMultValue)', 
   });
 });
 
-describe('Core.auraDmgMultFor / auraRateMultFor (company-wide coffee boost)', () => {
-  it('is a no-op multiplier (1x) with no coffee machine hired', () => {
+describe('Core.auraDmgMultFor / auraRateMultFor (CEO Distribute Bonuses only — coffee is a personal buff now, not folded in here)', () => {
+  it('is a no-op multiplier (1x) with nothing active', () => {
     expect(Game.Core.auraDmgMultFor()).toBe(1);
     expect(Game.Core.auraRateMultFor()).toBe(1);
   });
 
-  it('boosts damage and speeds up fire rate once a coffee machine is hired', () => {
+  it('a hired coffee machine alone does not move these — its boost only ever reaches a Tower via that tower\'s own coffeeBuffTimer', () => {
     const coffee = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
-    Game.Core.towers.push(coffee);
-    expect(Game.Core.auraDmgMultFor()).toBe(coffee.auraDmgMultValue);
-    expect(Game.Core.auraRateMultFor()).toBe(coffee.auraRateMultValue);
-  });
-
-  it('a stunned coffee machine contributes no boost', () => {
-    const coffee = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
-    coffee.stunTimer = 5000;
     Game.Core.towers.push(coffee);
     expect(Game.Core.auraDmgMultFor()).toBe(1);
     expect(Game.Core.auraRateMultFor()).toBe(1);
   });
+});
 
-  it('a hired combat tower actually reads the live company-wide boost through its own damage/fireRate getters', () => {
+describe('Tower.damage / fireRate — personal coffee buff (coffeeBuffTimer/coffeeDmgMult/coffeeRateMult)', () => {
+  it('a tower near a hired coffee machine is unaffected until it actually receives a coffee (coffeeBuffTimer still 0)', () => {
     const coffee = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
     const eng = new Entities.Tower('engineer', 2, 0, PATH.cellCenter(2, 0));
     Game.Core.towers.push(coffee, eng);
     const def = CFG.TOWER_TYPES.engineer;
-    expect(eng.damage).toBeCloseTo(def.damage * coffee.auraDmgMultValue);
-    expect(eng.fireRate).toBeCloseTo(def.fireRate * coffee.auraRateMultValue);
+    expect(eng.damage).toBe(def.damage);
+    expect(eng.fireRate).toBe(def.fireRate);
+  });
+
+  it('a tower with an active coffeeBuffTimer gets the boost from its own snapshotted coffeeDmgMult/coffeeRateMult', () => {
+    const eng = new Entities.Tower('engineer', 2, 0, PATH.cellCenter(2, 0));
+    eng.coffeeBuffTimer = 5000;
+    eng.coffeeDmgMult = 1.15;
+    eng.coffeeRateMult = 0.88;
+    const def = CFG.TOWER_TYPES.engineer;
+    expect(eng.damage).toBeCloseTo(def.damage * 1.15);
+    expect(eng.fireRate).toBeCloseTo(def.fireRate * 0.88);
+  });
+
+  it('a stale coffeeDmgMult/coffeeRateMult is ignored once coffeeBuffTimer has expired back to 0', () => {
+    const eng = new Entities.Tower('engineer', 2, 0, PATH.cellCenter(2, 0));
+    eng.coffeeBuffTimer = 0;
+    eng.coffeeDmgMult = 1.5; eng.coffeeRateMult = 0.5;
+    const def = CFG.TOWER_TYPES.engineer;
+    expect(eng.damage).toBe(def.damage);
+    expect(eng.fireRate).toBe(def.fireRate);
+  });
+
+  it('combines with an active CEO Distribute Bonuses buff via best-of, not by stacking additively', () => {
+    Game.Core.state = 'playing';
+    Game.Core.budget = 1000;
+    Game.Core.useCeoBonuses();
+    const eng = new Entities.Tower('engineer', 2, 0, PATH.cellCenter(2, 0));
+    eng.coffeeBuffTimer = 5000;
+    eng.coffeeDmgMult = 1.05; // deliberately weaker than the CEO buff
+    eng.coffeeRateMult = 0.95;
+    const def = CFG.TOWER_TYPES.engineer;
+    expect(eng.damage).toBeCloseTo(def.damage * Math.max(Game.Core.ceoBonusesDmgMult, 1.05));
+    expect(eng.fireRate).toBeCloseTo(def.fireRate * Math.min(Game.Core.ceoBonusesFireRateMult, 0.95));
+  });
+});
+
+describe('Core.deliverCoffee', () => {
+  it('does nothing (no throw, no effects) when there are no other hired towers', () => {
+    const coffee = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
+    Game.Core.towers = [coffee];
+    Game.Core.effects = [];
+    expect(() => Game.Core.deliverCoffee(coffee)).not.toThrow();
+    expect(Game.Core.effects).toHaveLength(0);
+  });
+
+  it("delivers to coffeeCountByLevel[level] random OTHER towers, each getting the machine's current potency snapshotted plus one coffeeFly effect, never targeting itself", () => {
+    const coffee = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
+    const engA = new Entities.Tower('engineer', 2, 0, PATH.cellCenter(2, 0));
+    const engB = new Entities.Tower('sre', 5, 0, PATH.cellCenter(5, 0));
+    const engC = new Entities.Tower('qa', 8, 0, PATH.cellCenter(8, 0));
+    coffee.level = 2;
+    Game.Core.towers = [coffee, engA, engB, engC];
+    Game.Core.effects = [];
+
+    Game.Core.deliverCoffee(coffee);
+
+    const buffed = [engA, engB, engC].filter((t) => t.coffeeBuffTimer > 0);
+    expect(buffed).toHaveLength(CFG.TOWER_TYPES.coffee.coffeeCountByLevel[2]);
+    expect(coffee.coffeeBuffTimer).toBe(0); // never buffs itself
+    for (const t of buffed) {
+      expect(t.coffeeDmgMult).toBe(coffee.auraDmgMultValue);
+      expect(t.coffeeRateMult).toBe(coffee.auraRateMultValue);
+    }
+    expect(Game.Core.effects.filter((fx) => fx.type === 'coffeeFly')).toHaveLength(buffed.length);
+  });
+
+  it('caps the batch at however many other towers actually exist, even at max level', () => {
+    const coffee = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
+    const eng = new Entities.Tower('engineer', 2, 0, PATH.cellCenter(2, 0));
+    coffee.level = 4;
+    Game.Core.towers = [coffee, eng];
+    Game.Core.effects = [];
+
+    Game.Core.deliverCoffee(coffee);
+
+    expect(eng.coffeeBuffTimer).toBeGreaterThan(0);
+    expect(Game.Core.effects.filter((fx) => fx.type === 'coffeeFly')).toHaveLength(1);
   });
 });
 

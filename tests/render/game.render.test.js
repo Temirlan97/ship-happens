@@ -50,6 +50,34 @@ describe('Core.render — populated board', () => {
     expect(() => Core.render()).not.toThrow();
   });
 
+  it('draws the Distribute Bonuses "$" marker over a hired tower without throwing', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.state = 'playing';
+    Core.budget = 1000;
+    Core.useCeoBonuses();
+    expect(() => Core.render()).not.toThrow();
+  });
+
+  it('draws a coffee-cup marker over a personally-buffed tower without throwing', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.towers[0].coffeeBuffTimer = 5000;
+    Core.towers[0].coffeeDmgMult = 1.15;
+    Core.towers[0].coffeeRateMult = 0.88;
+    expect(() => Core.render()).not.toThrow();
+  });
+
+  it('draws an in-flight coffeeFly effect without throwing', () => {
+    Core.effects.push({ type: 'coffeeFly', life: 0.3, maxLife: 0.5, x: 100, y: 100, targetX: 300, targetY: 200 });
+    expect(() => Core.render()).not.toThrow();
+  });
+
+  it('draws the Fix Bugs range-preview ring without throwing', () => {
+    Core.ceoRangePreview = true;
+    expect(() => Core.render()).not.toThrow();
+  });
+
   it('draws hovered empty desks and coffee spot (highlight branch) without throwing', () => {
     const d = CFG.DESK_POSITIONS[0];
     Core.hoverTarget = { type: 'desk', desk: d };

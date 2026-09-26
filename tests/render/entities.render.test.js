@@ -76,13 +76,23 @@ describe('Tower.update — attack triggering (real behavior, not just smoke)', (
     expect(Core.budget).toBeGreaterThan(budgetBefore);
   });
 
-  it('aura (coffee): update is a total no-op — passive, read live by other towers instead', () => {
+  it('aura (coffee): never fires a projectile — a delivery cycle elapsing calls Core.deliverCoffee instead', () => {
     const t = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
-    const cooldownBefore = t.cooldownTimer;
     const projectiles = [];
-    t.update(0.016, [], projectiles, []);
+    const interval = CFG.TOWER_TYPES.coffee.coffeeIntervalMs;
+    // No other towers hired, so deliverCoffee has nobody to give a coffee
+    // to — this just proves a full delivery cycle doesn't throw and never
+    // touches projectiles, regardless of whether a delivery could land.
+    expect(() => t.update(interval / 1000 + 0.01, [], projectiles, [])).not.toThrow();
     expect(projectiles).toHaveLength(0);
-    expect(t.cooldownTimer).toBe(cooldownBefore);
+  });
+
+  it('aura (coffee): a stunned machine skips its delivery cycle entirely, same as any other stunned tower', () => {
+    const t = new Entities.Tower('coffee', CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, PATH.cellCenter(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row));
+    t.stunTimer = 5000;
+    const interval = CFG.TOWER_TYPES.coffee.coffeeIntervalMs;
+    t.update(interval / 1000 + 0.01, [], [], []);
+    expect(t.coffeeTimer).toBe(0); // never even started accumulating while stunned
   });
 
   it('a stunned tower fires nothing and just counts down its stun', () => {

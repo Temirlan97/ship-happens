@@ -5,10 +5,12 @@
 //   lob       -> SRE/DevOps: arcing rollback that splash-resolves several bugs
 //   lightning -> QA Engineer: instant test-run hit that also flags a 2nd bug
 //   income    -> Product Manager: generates Budget over time (scales w/ rank)
-//   aura      -> Coffee Machine: no attack, buffs every teammate's damage
-//                and fire rate company-wide — read live by Core (see
-//                Core.auraDmgMultFor/auraRateMultFor in game.js) rather than
-//                cached, so there's no staleness to manage.
+//   aura      -> Coffee Machine: no attack of its own — instead, every
+//                coffeeIntervalMs it hands a personal, timed damage/fire-
+//                rate buff to a handful of random OTHER towers (see
+//                Core.deliverCoffee in game.js), tracked per-recipient via
+//                coffeeBuffTimer/coffeeDmgMult/coffeeRateMult below rather
+//                than a single company-wide multiplier.
 (function () {
   const CFG = window.Game.Config;
 
@@ -478,6 +480,11 @@
       this.baseRange = def.range; this.baseDamage = def.damage; this.baseFireRate = def.fireRate;
       this.cooldownTimer = 0; this.angle = -Math.PI / 2; this.incomeTimer = 0;
       this.stunTimer = 0;
+      // Coffee machine only: coffeeTimer paces its own delivery cycle;
+      // coffeeBuffTimer/coffeeDmgMult/coffeeRateMult are what a RECIPIENT
+      // tower carries after being handed a coffee (see Core.deliverCoffee).
+      this.coffeeTimer = 0;
+      this.coffeeBuffTimer = 0; this.coffeeDmgMult = 1; this.coffeeRateMult = 1;
       // Deterministic per-hire look — same placement always looks the same,
       // but different teammates of the same role aren't visual clones.
       const seed = (col * 7 + row * 13 + type.length * 31) % 997;
@@ -490,15 +497,24 @@
     get range() { return this.baseRange * this.mult.range; }
     get damage() {
       const core = window.Game.Core;
-      const auraMult = core ? core.auraDmgMultFor() : 1;
-      return this.baseDamage * this.mult.dmg * auraMult;
+      // Two independent sources can boost a tower: the CEO's company-wide
+      // Distribute Bonuses buff (read live from Core) and this specific
+      // tower's own personal coffee buff (its own timer/value, set once by
+      // Core.deliverCoffee when it was handed a coffee) — best of both wins.
+      const ceoMult = core ? core.auraDmgMultFor() : 1;
+      const coffeeMult = this.coffeeBuffTimer > 0 ? this.coffeeDmgMult : 1;
+      return this.baseDamage * this.mult.dmg * Math.max(ceoMult, coffeeMult);
     }
     get fireRate() {
       const core = window.Game.Core;
-      const emMult = core ? core.auraRateMultFor() : 1;
-      return this.baseFireRate * this.mult.rate * emMult;
+      const ceoMult = core ? core.auraRateMultFor() : 1;
+      const coffeeMult = this.coffeeBuffTimer > 0 ? this.coffeeRateMult : 1;
+      return this.baseFireRate * this.mult.rate * Math.min(ceoMult, coffeeMult);
     }
-    // An EM's own aura strength — read live by Core.auraDmgMultFor/auraRateMultFor.
+    // The coffee machine's own per-dose strength — read once by
+    // Core.deliverCoffee at the moment a coffee is handed out, then
+    // snapshotted onto the recipient (coffeeDmgMult/coffeeRateMult above),
+    // same cast-time-snapshot pattern the CEO's own abilities use.
     get auraLevelMult() { return CFG.AURA_LEVEL_MULT[this.level]; }
     get auraDmgMultValue() { return 1 + (this.def.auraDmgMult || 0) * this.auraLevelMult; }
     get auraRateMultValue() { return Math.max(0.4, 1 - (this.def.auraRateMult || 0) * this.auraLevelMult); }
@@ -533,12 +549,25 @@
     }
 
     update(dt, enemies, projectiles, effects) {
+      // Decrements regardless of what branch this tower takes below (even
+      // while stunned) so a personal coffee buff always expires on time.
+      if (this.coffeeBuffTimer > 0) {
+        this.coffeeBuffTimer -= dt * 1000;
+        if (this.coffeeBuffTimer < 0) this.coffeeBuffTimer = 0;
+      }
       if (this.stunTimer > 0) {
         this.stunTimer -= dt * 1000;
         if (this.stunTimer < 0) this.stunTimer = 0;
         return; // firefighting mode: no firing, no income, while stunned
       }
-      if (this.def.attack === 'aura') return; // passive — bonuses are read live by other towers
+      if (this.def.attack === 'aura') {
+        this.coffeeTimer += dt * 1000;
+        if (this.coffeeTimer >= this.def.coffeeIntervalMs) {
+          this.coffeeTimer -= this.def.coffeeIntervalMs;
+          window.Game.Core.deliverCoffee(this);
+        }
+        return;
+      }
 
       if (this.def.income) {
         const core = window.Game.Core;

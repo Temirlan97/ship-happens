@@ -51,7 +51,16 @@
       },
       coffee: {
         name: 'Coffee Machine', cost: 50000, cooldown: 8000,
+        // Not a passive team-wide buff anymore — every coffeeIntervalMs it
+        // delivers a coffee (flying-cup effect) to coffeeCountByLevel[level]
+        // random OTHER hired towers, each getting a personal, timed
+        // (coffeeDurationMs) damage/fire-rate boost sized by
+        // auraDmgMult/auraRateMult (still scaled by AURA_LEVEL_MULT — a
+        // higher-level machine both brews more cups per round AND makes
+        // each cup stronger). See Tower.update's attack === 'aura' branch.
         attack: 'aura', auraDmgMult: 0.15, auraRateMult: 0.12,
+        coffeeIntervalMs: 6000, coffeeDurationMs: 8000,
+        coffeeCountByLevel: [null, 1, 2, 3, 4],
         color: '#b083f0', glow: '#d9c4ff', core: '#f5eeff',
         ranks: ['Drip Machine', 'Espresso Machine', 'Barista Station', 'Cold Brew Command Center'],
         salaryBase: 2000

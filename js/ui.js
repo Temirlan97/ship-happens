@@ -211,11 +211,20 @@
   const CEO_ABILITIES = [
     { key: 'allHands', name: 'All-Hands', icon: 'assets/enemies/bug.png', cast: (c) => c.useCeoAllHands() },
     { key: 'bonuses', name: 'Distribute Bonuses', icon: 'assets/tiles/prop_ceo_coins.png', cast: (c) => c.useCeoBonuses() },
-    { key: 'fixBugs', name: 'Fix Bugs', icon: 'assets/characters/qa_4.png', cast: (c) => c.useCeoFixBugs() }
+    // showsRange: hovering this card previews its range ring on the board
+    // (Core.ceoRangePreview, drawn in game.js's render()) — the only one of
+    // the 3 abilities with a fixed distance that's actually useful to see
+    // before committing to a cast.
+    { key: 'fixBugs', name: 'Fix Bugs', icon: 'assets/characters/qa_4.png', cast: (c) => c.useCeoFixBugs(), showsRange: true }
   ];
 
   function showCeoAbilityPanel(open) {
     const panel = el('ceoAbilityPanel');
+    // Reset on every open AND close — closing a card removes it from the
+    // DOM while the pointer may still be "over" it, and pointerleave isn't
+    // guaranteed to fire for a removed element, so this is the one place
+    // guaranteed to run in every case that ends the hover.
+    if (core) core.ceoRangePreview = false;
     if (!open || !core) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
 
     panel.innerHTML = '';
@@ -234,6 +243,10 @@
       btn.querySelector('.card-cooldown').style.height = s.cooldownFraction * 100 + '%';
       btn.querySelector('.card-cooldown-label').textContent = cooldownLabel(s);
       btn.querySelector('.card-icon').style.backgroundImage = `url('${ability.icon}')`;
+      if (ability.showsRange) {
+        btn.addEventListener('pointerenter', () => { core.ceoRangePreview = true; });
+        btn.addEventListener('pointerleave', () => { core.ceoRangePreview = false; });
+      }
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         ability.cast(core);

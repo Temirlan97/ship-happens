@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { loadGame } from '../helpers/loadGame.js';
 
 let Game, CFG, PATH, Core, Entities;
@@ -320,6 +320,31 @@ describe('Core.updateCeoAllHands — channeled bug-only damage', () => {
     expect(bug.hp).toBe(hpAfterChannelEnds);
   });
 
+  it('plays one ceoAllHandsZap per tick that actually strikes something, not one per bug hit', () => {
+    const anchor = PATH.ceoAnchor;
+    const zap = vi.spyOn(window.Game.Audio, 'ceoAllHandsZap');
+    const bugA = new Entities.Enemy('bug', PATH.waypoints, 0);
+    bugA.x = anchor.x; bugA.y = anchor.y;
+    const bugB = new Entities.Enemy('bug', PATH.waypoints, 0);
+    bugB.x = anchor.x + 40; bugB.y = anchor.y;
+    Core.enemies = [bugA, bugB];
+
+    Core.useCeoAllHands();
+    const cfg = CFG.CEO.abilities.allHands;
+    Core.updateCeoAllHands(cfg.tickIntervalMs / 1000);
+
+    expect(zap).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not play ceoAllHandsZap on a tick that strikes nothing', () => {
+    const zap = vi.spyOn(window.Game.Audio, 'ceoAllHandsZap');
+    Core.enemies = [];
+    Core.useCeoAllHands();
+    const cfg = CFG.CEO.abilities.allHands;
+    Core.updateCeoAllHands(cfg.tickIntervalMs / 1000);
+    expect(zap).not.toHaveBeenCalled();
+  });
+
   it('does not strike anything on a sub-tick-interval frame, only once accumulated time reaches tickIntervalMs', () => {
     const anchor = PATH.ceoAnchor;
     const bug = new Entities.Enemy('bug', PATH.waypoints, 0);
@@ -537,6 +562,21 @@ describe('Core.updateCeoFixBugs — furthest-along targeting, chain, and slow', 
 
     expect(ahead.hp).toBeLessThan(ahead0Hp);
     expect(ahead.slowFactor).toBeGreaterThan(0);
+  });
+
+  it('plays ceoFixBugsZap when a shot actually connects, not when nothing is in range', () => {
+    const anchor = PATH.ceoAnchor;
+    const zap = vi.spyOn(window.Game.Audio, 'ceoFixBugsZap');
+    Core.useCeoFixBugs();
+    Core.enemies = [];
+    Core.updateCeoFixBugs(0);
+    expect(zap).not.toHaveBeenCalled();
+
+    const target = new Entities.Enemy('bug', PATH.waypoints, 0);
+    target.x = anchor.x; target.y = anchor.y;
+    Core.enemies = [target];
+    Core.updateCeoFixBugs(0);
+    expect(zap).toHaveBeenCalledTimes(1);
   });
 
   it('ignores enemies outside range', () => {
@@ -920,15 +960,15 @@ describe('Core.update — Crisis-entry toast', () => {
   });
 });
 
-describe('Core.auraRateMultFor — coffee aura with no active bonuses buff', () => {
-  it('an active coffee aura with no bonuses buff yields just the coffee multiplier', () => {
+describe('Core.auraRateMultFor / auraDmgMultFor — a hired coffee machine alone does not move these', () => {
+  it('a coffee machine with no active CEO bonuses buff leaves both at the neutral 1x — coffee\'s boost is personal per-recipient now, not read through here', () => {
     Core.state = 'playing';
     Core.budget = 100000;
     const cs = CFG.COFFEE_SPOT;
     Core.hireAt(cs.col, cs.row, 'coffee');
     Core.ceoBonusesTimer = 0;
-    const coffeeMult = Core.towers[0].auraRateMultValue;
-    expect(Core.auraRateMultFor()).toBe(coffeeMult);
+    expect(Core.auraRateMultFor()).toBe(1);
+    expect(Core.auraDmgMultFor()).toBe(1);
   });
 });
 

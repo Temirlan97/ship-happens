@@ -49,6 +49,19 @@ describe('Config shape', () => {
     expect(coffee.auraRateMult).toBeGreaterThan(0);
   });
 
+  it('gives the coffee machine a delivery interval/duration and a per-level recipient count (index 0 unused, like ranks)', () => {
+    const coffee = CFG.TOWER_TYPES.coffee;
+    expect(coffee.coffeeIntervalMs).toBeGreaterThan(0);
+    expect(coffee.coffeeDurationMs).toBeGreaterThan(0);
+    expect(coffee.coffeeCountByLevel).toHaveLength(5);
+    for (let level = 1; level <= 4; level++) {
+      expect(coffee.coffeeCountByLevel[level], `level ${level}`).toBeGreaterThan(0);
+    }
+    for (let level = 2; level <= 4; level++) {
+      expect(coffee.coffeeCountByLevel[level], `level ${level}`).toBeGreaterThanOrEqual(coffee.coffeeCountByLevel[level - 1]);
+    }
+  });
+
   it('gives every enemy type hp/speed/leakCost/bounty/radius', () => {
     for (const [key, def] of Object.entries(CFG.ENEMY_TYPES)) {
       expect(def.hp, key).toBeGreaterThan(0);

@@ -84,6 +84,12 @@
     // is currently open — toggled by clicking the CEO, closed by picking
     // a card or clicking elsewhere (see runTap).
     ceoMenuOpen: false,
+    // True while the pointer is hovering the Fix Bugs card in the open
+    // menu — draws that ability's range ring on the board (see render()).
+    // Reset whenever the panel opens/closes (showCeoAbilityPanel in ui.js)
+    // so it can't get stuck true after the button itself is removed from
+    // the DOM mid-hover (pointerleave isn't guaranteed to fire then).
+    ceoRangePreview: false,
     ceoIncomeTimer: 0,
     // 3 fully independent abilities — each own cooldown + active-effect
     // timer, no shared/mutual-exclusion state. See CFG.CEO.abilities.
@@ -311,11 +317,17 @@
       if (this.ceoAllHandsTickTimer < cfg.tickIntervalMs) return;
       this.ceoAllHandsTickTimer -= cfg.tickIntervalMs;
       const anchor = PATH.ceoAnchor;
+      let struck = false;
       for (const e of this.enemies) {
         if (e.dead || e.reachedEnd || e.type !== 'bug') continue;
         e.takeDamage(this.ceoAllHandsDamage);
         this.effects.push({ type: 'lightning', life: 0.16, maxLife: 0.16, points: jaggedPoints(anchor.x, anchor.y - 20, e.x, e.y, 6, 14), color: '#fff8dc', glow: '#ffd76b' });
+        struck = true;
       }
+      // One zap per tick (not per bug hit) even if this tick struck several
+      // bugs at once — several simultaneous zaps would just be a louder,
+      // muddier version of the same sound, not a more informative one.
+      if (struck) window.Game.Audio.ceoAllHandsZap();
     },
 
     // Not a real Tower instance (the CEO staying architecturally separate
@@ -346,6 +358,7 @@
       const damage = this.ceoFixBugsDamage;
       target.takeDamage(damage);
       target.applySlow(cfg.slow, cfg.slowDuration);
+      window.Game.Audio.ceoFixBugsZap();
       this.effects.push({ type: 'lightning', life: 0.16, maxLife: 0.16, points: jaggedPoints(anchor.x, anchor.y - 20, target.x, target.y, 6, 14), color: '#fff8dc', glow: '#5fe37f' });
       this.effects.push({ type: 'flash', life: 0.18, maxLife: 0.18, x: target.x, y: target.y, r: 16, color: '#5fe37f' });
 
@@ -727,7 +740,7 @@
       this.pendingHireDesk = null;
       window.Game.UI.showHirePanel(null);
       if (type === 'coffee') {
-        window.Game.UI.showToast(`${def.name} hired — boosts every teammate's damage and fire rate company-wide.`);
+        window.Game.UI.showToast(`${def.name} hired — periodically hands out coffees that boost a teammate's damage and fire rate.`);
       }
     },
 
@@ -779,29 +792,48 @@
       window.Game.UI.updateHUD();
     },
 
-    // ---- coffee machine boost: company-wide (every hired teammate, no
-    // matter where they sit), not radius-limited — read live (not cached)
-    // so there's no staleness to manage ----
+    // ---- CEO "Distribute Bonuses" boost: company-wide (every hired
+    // teammate, no matter where they sit), read live (not cached) so
+    // there's no staleness to manage. The coffee machine's boost is NOT
+    // folded in here anymore — it's a personal, timed buff carried by each
+    // recipient tower itself (coffeeBuffTimer/coffeeDmgMult/coffeeRateMult
+    // in entities.js), combined with this company-wide multiplier via
+    // Math.max/min directly in Tower.damage/fireRate. ----
     auraDmgMultFor() {
-      let best = 1;
-      for (const src of this.towers) {
-        if (src.type !== 'coffee' || src.stunTimer > 0) continue;
-        best = Math.max(best, src.auraDmgMultValue);
-      }
-      // The CEO's "Distribute Bonuses" ability folds into the same hook
-      // every tower already reads for the coffee machine's aura — no
-      // Tower changes needed.
-      if (this.ceoBonusesTimer > 0) best = Math.max(best, this.ceoBonusesDmgMult);
-      return best;
+      return this.ceoBonusesTimer > 0 ? this.ceoBonusesDmgMult : 1;
     },
     auraRateMultFor() {
-      let best = 1;
-      for (const src of this.towers) {
-        if (src.type !== 'coffee' || src.stunTimer > 0) continue;
-        best = Math.min(best, src.auraRateMultValue);
+      return this.ceoBonusesTimer > 0 ? this.ceoBonusesFireRateMult : 1;
+    },
+
+    // Called by Tower.update (entities.js) when a coffee machine's own
+    // delivery cycle elapses. Hands a personal, timed buff to a batch of
+    // random OTHER hired towers — batch size scales with the machine's own
+    // level (coffeeCountByLevel) — each visualized with a flying-cup effect
+    // that mirrors the CEO's Distribute Bonuses cashFly animation. The buff
+    // itself is applied immediately (not on the cup's arrival) — same
+    // "cosmetic flight, instant effect" choice Distribute Bonuses already
+    // makes — so timing here doesn't depend on the animation's travel time.
+    deliverCoffee(coffeeTower) {
+      const eligible = this.towers.filter((t) => t !== coffeeTower);
+      if (eligible.length === 0) return;
+      const count = Math.min(coffeeTower.def.coffeeCountByLevel[coffeeTower.level], eligible.length);
+      const shuffled = eligible.slice().sort(() => Math.random() - 0.5);
+      const dmgMult = coffeeTower.auraDmgMultValue;
+      const rateMult = coffeeTower.auraRateMultValue;
+      const duration = coffeeTower.def.coffeeDurationMs;
+      for (let i = 0; i < count; i++) {
+        const t = shuffled[i];
+        t.coffeeBuffTimer = duration;
+        t.coffeeDmgMult = dmgMult;
+        t.coffeeRateMult = rateMult;
+        const dist = Math.hypot(t.x - coffeeTower.x, t.y - coffeeTower.y);
+        const travel = 0.3 + Math.min(0.5, dist / 900);
+        this.effects.push({
+          type: 'coffeeFly', life: travel, maxLife: travel,
+          x: coffeeTower.x, y: coffeeTower.y - 20, targetX: t.x, targetY: t.y - 20
+        });
       }
-      if (this.ceoBonusesTimer > 0) best = Math.min(best, this.ceoBonusesFireRateMult);
-      return best;
     },
 
     // ---- economy ----
@@ -988,6 +1020,7 @@
       this.stats = { income: 0, salaries: 0, lost: 0, kills: 0, ceoGender: this.ceoGender, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0 };
       this.ceoIncomeTimer = 0;
       this.ceoMenuOpen = false;
+      this.ceoRangePreview = false;
       this.ceoAllHandsCooldown = 0; this.ceoAllHandsCooldownTotal = 1; this.ceoAllHandsTimer = 0; this.ceoAllHandsTickTimer = 0; this.ceoAllHandsDamage = 0;
       this.ceoBonusesCooldown = 0; this.ceoBonusesCooldownTotal = 1; this.ceoBonusesTimer = 0; this.ceoBonusesDmgMult = 1; this.ceoBonusesFireRateMult = 1;
       this.ceoFixBugsCooldown = 0; this.ceoFixBugsCooldownTotal = 1; this.ceoFixBugsTimer = 0; this.ceoFixBugsFireCooldown = 0; this.ceoFixBugsDamage = 0; this.ceoFixBugsRange = 0;
@@ -1006,6 +1039,7 @@
       this.state = 'gameover';
       this.gameOverReason = reason;
       this.ceoMenuOpen = false;
+      this.ceoRangePreview = false;
       window.Game.UI.showCeoAbilityPanel(false);
       this.lastReachedSprint = Math.max(1, this.waves.displayWaveNumber);
       if (this.lastReachedSprint > this.bestSprint) { this.bestSprint = this.lastReachedSprint; saveBestSprint(this.lastReachedSprint); }
@@ -1134,9 +1168,10 @@
       window.Game.UI.updateHUD();
     },
 
-    // The boost is company-wide now, not radius-limited, so a big catchment
-    // circle around the machine would be misleading — just a tight glow
-    // directly on the machine itself to read as "actively buffing."
+    // The machine hands out coffees to random recipients elsewhere on the
+    // board rather than boosting a fixed area, so a big catchment circle
+    // around it would be misleading — just a tight ambient glow on the
+    // machine itself to read as "running/brewing."
     drawAuraCircles(ctx) {
       const t = this.gameTime;
       for (const tower of this.towers) {
@@ -1170,6 +1205,49 @@
         ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('$', tower.x, markerY + 1);
         ctx.restore();
+      }
+    },
+
+    // Small procedural cup silhouette (trapezoid body + handle + steam
+    // wisps) — no emoji, per this project's "no emojis anywhere in the UI"
+    // rule. Shared by the flying 'coffeeFly' effect (drawEffects) and the
+    // persistent per-recipient marker (drawCoffeeMarkers) below so both
+    // use the exact same art.
+    drawCoffeeCup(ctx, x, y, scale) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-3, -9); ctx.quadraticCurveTo(-5, -14, -3, -17);
+      ctx.moveTo(2, -9); ctx.quadraticCurveTo(0, -14, 2, -17);
+      ctx.stroke();
+      ctx.fillStyle = '#caa06a';
+      ctx.beginPath();
+      ctx.moveTo(-6, -7); ctx.lineTo(6, -7); ctx.lineTo(5, 4);
+      ctx.quadraticCurveTo(0, 7, -5, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#caa06a'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(7, -2, 3, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
+      ctx.restore();
+    },
+
+    // The coffee machine's personal buff — a small cup icon hovering over
+    // each currently-buffed recipient, same marker convention
+    // drawBonusMarkers uses for the CEO's Distribute Bonuses badge, just
+    // per-tower (coffeeBuffTimer) instead of one shared timer.
+    drawCoffeeMarkers(ctx) {
+      const t = this.gameTime;
+      for (const tower of this.towers) {
+        if (tower.coffeeBuffTimer <= 0) continue;
+        const pulse = 0.8 + Math.sin(t * 2.4 + tower.x * 0.01) * 0.2;
+        // Stacked well above the "$" bonus badge's y-70 (not just matching
+        // it) — the two can be active on the same tower at once, and
+        // sitting at nearly the same height visually merged them into one
+        // unreadable blob right over the character's face.
+        this.drawCoffeeCup(ctx, tower.x, tower.y - 92, pulse);
       }
     },
 
@@ -1316,6 +1394,14 @@
           ctx.shadowColor = '#5fe37f'; ctx.shadowBlur = 8;
           ctx.fillStyle = '#5fe37f';
           ctx.fillText('$', 0, 0);
+        } else if (fx.type === 'coffeeFly') {
+          // A coffee cup traveling from the machine to its recipient — same
+          // lerp-with-arc-lift shape as cashFly above, just a drawn cup
+          // instead of a "$" glyph (see drawCoffeeCup).
+          const progress = 1 - a;
+          const x = fx.x + (fx.targetX - fx.x) * progress;
+          const y = fx.y + (fx.targetY - fx.y) * progress - Math.sin(Math.PI * progress) * 40;
+          this.drawCoffeeCup(ctx, x, y, 1);
         }
         ctx.restore();
       }
@@ -1365,7 +1451,6 @@
       window.Game.Camera.applyTransform(ctx);
       PATH.drawBackground(ctx);
       this.drawAuraCircles(ctx);
-      this.drawBonusMarkers(ctx);
       this.drawDesks(ctx);
 
       const hoveredTower = this.hoverTarget && this.hoverTarget.type === 'tower' ? this.hoverTarget.tower : null;
@@ -1376,6 +1461,31 @@
       // "in front" needs to overlap one "behind" them as enemies walk past).
       const depthSorted = this.towers.concat(this.enemies).sort((a, b) => a.y - b.y);
       for (const obj of depthSorted) obj.draw(ctx);
+
+      // Floating badges (bonuses "$" / coffee cup) draw AFTER every tower's
+      // own sprite, not before — some roles' art reaches high enough above
+      // their anchor point to otherwise paint over a badge drawn earlier in
+      // the painter's-algorithm pass (a code-review catch: QA/PM specifically
+      // were being covered when this used to run before drawDesks above).
+      this.drawBonusMarkers(ctx);
+      this.drawCoffeeMarkers(ctx);
+
+      if (this.ceoRangePreview) {
+        const anchor = PATH.ceoAnchor;
+        const range = CFG.CEO.abilities.fixBugs.rangeByState[this.ceoStateIndex];
+        ctx.save();
+        // A plain low-alpha stroke (matching the selected-tower range ring's
+        // styling) read as basically invisible against this board's busy
+        // wood/path art at real display size — a glow + higher contrast is
+        // needed for a hover preview to actually read as "here's the range."
+        ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 10;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath(); ctx.arc(anchor.x, anchor.y, range, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+
       for (const p of this.projectiles) p.draw(ctx);
       this.drawEffects();
       for (const p of this.particles) {
@@ -1393,8 +1503,9 @@
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(st.x, st.y, 28 + pulse, 0, Math.PI * 2); ctx.stroke();
         ctx.setLineDash([]);
-        // Coffee has no range ring — its boost is company-wide, not a
-        // catchment area, so there's no distance to visualize.
+        // Coffee has no range ring — it hands coffees to random towers
+        // anywhere on the board, not a fixed catchment area, so there's no
+        // distance to visualize.
         if (st.range) {
           ctx.strokeStyle = 'rgba(255,255,255,0.25)';
           ctx.beginPath(); ctx.arc(st.x, st.y, st.range, 0, Math.PI * 2); ctx.stroke();

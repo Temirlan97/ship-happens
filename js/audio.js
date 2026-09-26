@@ -184,6 +184,23 @@
       noiseBurst(0.15, 0.3, 2000, { delay: 0.16, filterType: 'bandpass' });
       [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.45, 'triangle', 0.22, { delay: 0.18 + i * 0.05 }));
       [261, 329, 392].forEach((f) => tone(f, 0.6, 'sine', 0.14, { delay: 0.18 }));
+    },
+    // Per-tick electric crackle for All-Hands' repeated bug strikes — kept
+    // short and bright since it can repeat every tickIntervalMs for the
+    // whole channel, unlike allHands()'s one-time cast fanfare above.
+    ceoAllHandsZap() {
+      ensureCtx();
+      noiseBurst(0.05, 0.22, 6500, { filterType: 'highpass', attack: 0.001 });
+      sweep(2600, 500, 0.1, 'sawtooth', 0.14);
+    },
+    // A single, slightly meatier zap for Fix Bugs — fires less often than
+    // All-Hands' ticks (its own fireRateMs), so it can afford a bit more
+    // weight (an added low thump) without becoming fatiguing.
+    ceoFixBugsZap() {
+      ensureCtx();
+      noiseBurst(0.06, 0.26, 5500, { filterType: 'highpass', attack: 0.001 });
+      sweep(2000, 300, 0.14, 'sawtooth', 0.16);
+      tone(70, 0.1, 'sine', 0.16, { delay: 0.02 });
     }
   };
 
