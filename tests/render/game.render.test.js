@@ -59,6 +59,22 @@ describe('Core.render — populated board', () => {
     expect(() => Core.render()).not.toThrow();
   });
 
+  it('draws the "$" marker for a hired engineer but not for the coffee machine', () => {
+    Core.budget = 100000;
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.hireAt(CFG.COFFEE_SPOT.col, CFG.COFFEE_SPOT.row, 'coffee');
+    Core.state = 'playing';
+    Core.useCeoBonuses();
+    // Call drawBonusMarkers directly (not the full render()) so the count
+    // can't be contaminated by the unrelated "$" cashFly effect glyph or
+    // any empty-desk "+" badge sharing the same radius-7 circle style.
+    const ctx = document.getElementById('gameCanvas').getContext('2d');
+    const fillText = vi.spyOn(ctx, 'fillText');
+    expect(() => Core.drawBonusMarkers(ctx)).not.toThrow();
+    expect(fillText.mock.calls.filter((args) => args[0] === '$')).toHaveLength(1);
+  });
+
   it('draws a coffee-cup marker over a personally-buffed tower without throwing', () => {
     const d = CFG.DESK_POSITIONS[0];
     Core.hireAt(d.col, d.row, 'engineer');

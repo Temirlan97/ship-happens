@@ -81,9 +81,19 @@
     // picker should perform on confirm (see ui.js's beginNewGame).
     pendingGameAction: 'start',
     // Whether the ability-select popup (mirrors the hire/upgrade panels)
-    // is currently open — toggled by clicking the CEO, closed by picking
-    // a card or clicking elsewhere (see runTap).
+    // is currently open — toggled by clicking the CEO, force-closed by
+    // clicking elsewhere (see runTap/closeCeoMenu). Casting a card no
+    // longer closes it immediately — see ceoMenuCastPending below.
     ceoMenuOpen: false,
+    // Armed (true) the moment a cast actually succeeds while the menu is
+    // open (card click or Q/W/E — see ui.js/bindInput), so the player can
+    // watch that ability's cooldown sweep finish instead of the panel
+    // vanishing the instant they cast. loop() auto-closes the menu once
+    // EVERY cooldown is back at 0 — since an ability never touched this
+    // session stays at cooldown 0 the whole time, this doubles as "wait
+    // for every ability actually cast this session," not just the last
+    // one, with no need to track which keys were cast individually.
+    ceoMenuCastPending: false,
     // True while the pointer is hovering the Fix Bugs card in the open
     // menu — draws that ability's range ring on the board (see render()).
     // Reset whenever the panel opens/closes (showCeoAbilityPanel in ui.js)
@@ -248,8 +258,12 @@
       const anchor = PATH.ceoAnchor;
       // One flying "$" per hired tower — further towers take a moment
       // longer to reach, same idea as Projectile's 'lob' kind interpolating
-      // over its own travel time.
+      // over its own travel time. The coffee machine is excluded: it's
+      // equipment, not a teammate whose own damage/fire-rate this ability
+      // could plausibly boost — giving it a cash bonus (or a "$" marker,
+      // see drawBonusMarkers) would just be a visual non-sequitur.
       for (const t of this.towers) {
+        if (t.type === 'coffee') continue;
         const dist = Math.hypot(t.x - anchor.x, t.y - anchor.y);
         const travel = 0.3 + Math.min(0.5, dist / 900);
         this.effects.push({
@@ -304,6 +318,17 @@
 
     get ceoDisplayName() {
       return this.ceoName || 'The founder';
+    },
+
+    // The one place that actually hides the ability panel — every call
+    // site that used to inline `ceoMenuOpen = false; UI.showCeoAbilityPanel
+    // (false);` now goes through here so ceoMenuCastPending always gets
+    // cleared alongside it (an earlier version reset it only in some of
+    // those spots and left the flag stuck true after others).
+    closeCeoMenu() {
+      this.ceoMenuOpen = false;
+      this.ceoMenuCastPending = false;
+      window.Game.UI.showCeoAbilityPanel(false);
     },
 
     // Channeled: every tickIntervalMs while active, strike every currently
@@ -450,16 +475,23 @@
           this.pendingHireDesk = null; window.Game.UI.showHirePanel(null);
           // A second click on him closes the menu again, same toggle feel
           // clicking an already-selected tower doesn't have, but fits a
-          // menu better than a persistent one-way-open popup would.
-          this.ceoMenuOpen = !this.ceoMenuOpen;
-          window.Game.UI.showCeoAbilityPanel(this.ceoMenuOpen);
+          // menu better than a persistent one-way-open popup would. This is
+          // a manual close and always wins immediately, regardless of
+          // ceoMenuCastPending — see closeCeoMenu.
+          if (this.ceoMenuOpen) {
+            this.closeCeoMenu();
+          } else {
+            this.ceoMenuOpen = true;
+            this.ceoMenuCastPending = false; // fresh open — nothing cast yet this session
+            window.Game.UI.showCeoAbilityPanel(true);
+          }
           return;
         }
 
         if (hit && hit.type === 'tower') {
           this.pendingHireDesk = null;
           window.Game.UI.showHirePanel(null);
-          this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
+          this.closeCeoMenu();
           this.selectedTower = hit.tower;
           window.Game.UI.updateUpgradePanel();
           return;
@@ -467,7 +499,7 @@
 
         if (hit && hit.type === 'coffee') {
           this.selectedTower = null; window.Game.UI.updateUpgradePanel();
-          this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
+          this.closeCeoMenu();
           this.pendingHireDesk = CFG.COFFEE_SPOT;
           window.Game.UI.showHirePanel(CFG.COFFEE_SPOT, ['coffee']);
           return;
@@ -475,7 +507,7 @@
 
         if (hit && hit.type === 'desk') {
           this.selectedTower = null; window.Game.UI.updateUpgradePanel();
-          this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
+          this.closeCeoMenu();
           this.pendingHireDesk = hit.desk;
           window.Game.UI.showHirePanel(hit.desk);
           return;
@@ -483,7 +515,7 @@
 
         this.selectedTower = null; window.Game.UI.updateUpgradePanel();
         this.pendingHireDesk = null; window.Game.UI.showHirePanel(null);
-        this.ceoMenuOpen = false; window.Game.UI.showCeoAbilityPanel(false);
+        this.closeCeoMenu();
       };
 
       // A tap must survive a real down-then-up with (near-)zero movement in
@@ -572,12 +604,36 @@
         Camera.zoomAround(Math.pow(1.0015, -e.deltaY), s.x, s.y);
       }, { passive: false });
 
+      // Q/W/E cast the CEO's 3 abilities directly, no need to open the menu
+      // first — mirrors CEO_ABILITIES' own hotkey field in ui.js (kept in
+      // sync manually, see its comment). Ignored while typing in any text
+      // field (name entry, feedback, leaderboard dialog) — belt-and-
+      // suspenders on top of each useCeoX's own `state !== 'playing'` guard,
+      // which already covers every one of those screens today, in case a
+      // future one ever opens while 'playing'.
+      const CEO_HOTKEYS = { q: 'useCeoAllHands', w: 'useCeoBonuses', e: 'useCeoFixBugs' };
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           this.selectedTower = null;
           this.pendingHireDesk = null;
           window.Game.UI.updateUpgradePanel();
           window.Game.UI.showHirePanel(null);
+          return;
+        }
+        const tag = e.target && e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        const method = CEO_HOTKEYS[e.key.toLowerCase()];
+        if (!method) return;
+        // Same "only arm the auto-close watch on an actual cast" guard the
+        // panel's own card click uses (see ui.js) — a hotkey pressed while
+        // an ability is still on cooldown must not pop the menu open only
+        // to have it slam shut again next frame.
+        const usesBefore = this.stats.ceoAbilityUses;
+        this[method]();
+        if (this.stats.ceoAbilityUses > usesBefore) {
+          this.ceoMenuOpen = true;
+          this.ceoMenuCastPending = true;
+          window.Game.UI.showCeoAbilityPanel(true);
         }
       });
 
@@ -1020,7 +1076,7 @@
       this.gameOverReason = 'bankrupt';
       this.stats = { income: 0, salaries: 0, lost: 0, kills: 0, ceoGender: this.ceoGender, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0 };
       this.ceoIncomeTimer = 0;
-      this.ceoMenuOpen = false;
+      this.closeCeoMenu();
       this.ceoRangePreview = false;
       this.ceoAllHandsCooldown = 0; this.ceoAllHandsCooldownTotal = 1; this.ceoAllHandsTimer = 0; this.ceoAllHandsTickTimer = 0; this.ceoAllHandsDamage = 0;
       this.ceoBonusesCooldown = 0; this.ceoBonusesCooldownTotal = 1; this.ceoBonusesTimer = 0; this.ceoBonusesDmgMult = 1; this.ceoBonusesFireRateMult = 1;
@@ -1030,7 +1086,6 @@
       this.state = 'playing';
       window.Game.UI.updateUpgradePanel();
       window.Game.UI.showHirePanel(null);
-      window.Game.UI.showCeoAbilityPanel(false);
       window.Game.UI.showScreen(null);
       window.Game.UI.updateHUD();
       window.Game.Leaderboard.runStart();
@@ -1039,9 +1094,8 @@
     gameOver(reason = 'bankrupt') {
       this.state = 'gameover';
       this.gameOverReason = reason;
-      this.ceoMenuOpen = false;
+      this.closeCeoMenu();
       this.ceoRangePreview = false;
-      window.Game.UI.showCeoAbilityPanel(false);
       this.lastReachedSprint = Math.max(1, this.waves.displayWaveNumber);
       if (this.lastReachedSprint > this.bestSprint) { this.bestSprint = this.lastReachedSprint; saveBestSprint(this.lastReachedSprint); }
       window.Game.Audio.gameOver();
@@ -1189,12 +1243,14 @@
     },
 
     // The CEO's "Distribute Bonuses" buff — a small "$" badge hovering
-    // over every hired tower for its duration, same marker style the
-    // empty-desk "+" affordance already uses (see drawDesks).
+    // over every hired tower (except the coffee machine — see useCeoBonuses)
+    // for its duration, same marker style the empty-desk "+" affordance
+    // already uses (see drawDesks).
     drawBonusMarkers(ctx) {
       if (this.ceoBonusesTimer <= 0) return;
       const t = this.gameTime;
       for (const tower of this.towers) {
+        if (tower.type === 'coffee') continue;
         const pulse = 0.7 + Math.sin(t * 2.2 + tower.x * 0.01) * 0.3;
         const markerY = tower.y - 70;
         ctx.save();
@@ -1536,7 +1592,17 @@
         window.Game.UI.positionUpgradePanel(this.selectedTower, canvas);
       }
       if (this.pendingHireDesk) window.Game.UI.refreshHirePanel();
-      if (this.ceoMenuOpen) { window.Game.UI.refreshCeoAbilityPanel(); window.Game.UI.positionCeoAbilityPanel(canvas); }
+      if (this.ceoMenuOpen) {
+        window.Game.UI.refreshCeoAbilityPanel();
+        window.Game.UI.positionCeoAbilityPanel(canvas);
+        // Auto-close once every cooldown is back at 0 — see
+        // ceoMenuCastPending's own comment for why checking all 3
+        // unconditionally is equivalent to "every ability actually cast
+        // this session is ready again."
+        if (this.ceoMenuCastPending && this.ceoAllHandsCooldown <= 0 && this.ceoBonusesCooldown <= 0 && this.ceoFixBugsCooldown <= 0) {
+          this.closeCeoMenu();
+        }
+      }
       requestAnimationFrame(this.loop.bind(this));
     }
   };

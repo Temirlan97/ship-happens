@@ -501,13 +501,19 @@
       // Distribute Bonuses buff (read live from Core) and this specific
       // tower's own personal coffee buff (its own timer/value, set once by
       // Core.deliverCoffee when it was handed a coffee) — best of both wins.
-      const ceoMult = core ? core.auraDmgMultFor() : 1;
+      // The coffee machine itself never reads .damage/.fireRate in practice
+      // (its attack === 'aura' branch in update() returns before either
+      // would be used), but it's excluded here too, not just from the
+      // effect/marker in useCeoBonuses/drawBonusMarkers — it's equipment,
+      // not a teammate Distribute Bonuses could plausibly boost, so the
+      // getter itself shouldn't silently disagree if anything ever reads it.
+      const ceoMult = (core && this.type !== 'coffee') ? core.auraDmgMultFor() : 1;
       const coffeeMult = this.coffeeBuffTimer > 0 ? this.coffeeDmgMult : 1;
       return this.baseDamage * this.mult.dmg * Math.max(ceoMult, coffeeMult);
     }
     get fireRate() {
       const core = window.Game.Core;
-      const ceoMult = core ? core.auraRateMultFor() : 1;
+      const ceoMult = (core && this.type !== 'coffee') ? core.auraRateMultFor() : 1;
       const coffeeMult = this.coffeeBuffTimer > 0 ? this.coffeeRateMult : 1;
       return this.baseFireRate * this.mult.rate * Math.min(ceoMult, coffeeMult);
     }

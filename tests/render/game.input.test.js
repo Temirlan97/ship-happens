@@ -119,7 +119,7 @@ describe('clicking the CEO', () => {
     expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
   });
 
-  it('clicking a card in the open menu casts that ability and closes the menu', () => {
+  it('clicking a card in the open menu casts that ability and keeps the menu open (so its cooldown sweep is visible)', () => {
     Core.budget = 1000;
     const anchor = PATH.ceoAnchor;
     click(anchor.x, anchor.y);
@@ -128,8 +128,41 @@ describe('clicking the CEO', () => {
     btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     expect(Core.stats.ceoAbilityUses).toBe(1);
     expect(Core.ceoAllHandsTimer).toBeGreaterThan(0);
+    expect(Core.ceoMenuOpen).toBe(true);
+    expect(Core.ceoMenuCastPending).toBe(true);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(false);
+  });
+
+  it('the menu auto-closes on the next loop() tick once every cooldown is back at 0', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    document.querySelector('#ceoAbilityPanel button[data-key="allHands"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(Core.ceoMenuOpen).toBe(true);
+
+    Core.ceoAllHandsCooldown = 0; // simulate the cooldown having fully elapsed
+    Core.loop(performance.now());
+
     expect(Core.ceoMenuOpen).toBe(false);
+    expect(Core.ceoMenuCastPending).toBe(false);
     expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
+  });
+
+  it('a click that a cooldown guard silently blocks does not arm the auto-close watch (menu stays open, not stuck-then-vanish)', () => {
+    Core.budget = 1000;
+    const anchor = PATH.ceoAnchor;
+    click(anchor.x, anchor.y);
+    const btn = document.querySelector('#ceoAbilityPanel button[data-key="allHands"]');
+    btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); // real cast, puts it on cooldown
+    Core.loop(performance.now()); // does not auto-close yet — cooldown still > 0
+    expect(Core.ceoMenuOpen).toBe(true);
+
+    // The card is now disabled by cooldown, so a real click wouldn't even
+    // reach the handler — call it directly to simulate that edge anyway.
+    const usesBefore = Core.stats.ceoAbilityUses;
+    document.querySelector('#ceoAbilityPanel button[data-key="allHands"]').click();
+    expect(Core.stats.ceoAbilityUses).toBe(usesBefore); // blocked, nothing changed
+    expect(Core.ceoMenuOpen).toBe(true); // still open, still watching
   });
 
   it('opening the menu while budget is negative still shows every card, but casting from it does nothing (the same guard each useCeoX always had)', () => {
@@ -140,6 +173,11 @@ describe('clicking the CEO', () => {
     const btn = document.querySelector('#ceoAbilityPanel button[data-key="bonuses"]');
     btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     expect(Core.stats.ceoAbilityUses).toBe(0);
+    // A blocked cast must not arm the auto-close watch either — the very
+    // next loop() tick (all cooldowns already 0, nothing to wait for)
+    // would otherwise instantly close the menu the player just opened.
+    Core.loop(performance.now());
+    expect(Core.ceoMenuOpen).toBe(true);
   });
 
   it('clicking elsewhere on the canvas closes the open menu without casting anything', () => {
@@ -175,7 +213,7 @@ describe('clicking the CEO', () => {
     expect(Core.ceoRangePreview).toBe(false);
   });
 
-  it('casting Fix Bugs while its card is hovered clears ceoRangePreview along with closing the menu', () => {
+  it('casting Fix Bugs while its card is hovered leaves ceoRangePreview set — the menu stays open and the pointer never left the card', () => {
     Core.budget = 1000;
     const anchor = PATH.ceoAnchor;
     click(anchor.x, anchor.y);
@@ -183,7 +221,8 @@ describe('clicking the CEO', () => {
     btn.dispatchEvent(new window.MouseEvent('pointerenter', { bubbles: true }));
     expect(Core.ceoRangePreview).toBe(true);
     btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    expect(Core.ceoRangePreview).toBe(false);
+    expect(Core.ceoRangePreview).toBe(true);
+    expect(Core.ceoMenuOpen).toBe(true);
   });
 
   it('closing the menu by clicking elsewhere clears a stuck ceoRangePreview even without a pointerleave', () => {
@@ -355,6 +394,72 @@ describe('keydown Escape', () => {
     window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(Core.selectedTower).toBeNull();
     expect(Core.pendingHireDesk).toBeNull();
+  });
+});
+
+describe('keydown Q/W/E — CEO ability hotkeys', () => {
+  function press(key) {
+    window.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true }));
+  }
+
+  it('Q casts All-Hands, W casts Distribute Bonuses, E casts Fix Bugs — without needing the menu open first', () => {
+    Core.budget = 1000;
+    expect(Core.ceoMenuOpen).toBe(false);
+    press('q');
+    expect(Core.ceoAllHandsTimer).toBeGreaterThan(0);
+    expect(Core.stats.ceoAbilityUses).toBe(1);
+
+    press('w');
+    expect(Core.ceoBonusesTimer).toBeGreaterThan(0);
+    expect(Core.stats.ceoAbilityUses).toBe(2);
+
+    press('e');
+    expect(Core.ceoFixBugsTimer).toBeGreaterThan(0);
+    expect(Core.stats.ceoAbilityUses).toBe(3);
+  });
+
+  it('is case-insensitive (uppercase Q/W/E work too)', () => {
+    Core.budget = 1000;
+    press('Q');
+    expect(Core.ceoAllHandsTimer).toBeGreaterThan(0);
+  });
+
+  it('opens the ability panel and arms the auto-close watch on a successful hotkey cast', () => {
+    Core.budget = 1000;
+    press('q');
+    expect(Core.ceoMenuOpen).toBe(true);
+    expect(Core.ceoMenuCastPending).toBe(true);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(false);
+  });
+
+  it('does nothing (no cast, no panel) while budget is negative — the same guard every useCeoX already has', () => {
+    Core.budget = -1;
+    press('q');
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+    expect(Core.ceoMenuOpen).toBe(false);
+  });
+
+  it('does nothing while not in the playing state', () => {
+    Core.budget = 1000;
+    Core.state = 'paused';
+    press('q');
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+  });
+
+  it('is ignored while a text input has focus, so typing a name containing q/w/e cannot accidentally cast', () => {
+    Core.budget = 1000;
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'q', bubbles: true }));
+    expect(Core.stats.ceoAbilityUses).toBe(0);
+    document.body.removeChild(input);
+  });
+
+  it('an unrelated key does nothing', () => {
+    Core.budget = 1000;
+    press('r');
+    expect(Core.stats.ceoAbilityUses).toBe(0);
   });
 });
 

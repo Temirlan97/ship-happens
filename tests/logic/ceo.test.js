@@ -437,6 +437,26 @@ describe('Core.useCeoBonuses', () => {
     Core.useCeoBonuses();
     expect(Core.effects.slice(before2).filter((fx) => fx.type === 'cashFly')).toHaveLength(1);
   });
+
+  it('excludes the coffee machine from the cashFly effect and from the buff itself — it is equipment, not a teammate this ability could plausibly boost', () => {
+    Core.budget = 100000;
+    const cs = CFG.COFFEE_SPOT;
+    Core.hireAt(cs.col, cs.row, 'coffee');
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    const coffee = Core.towers.find((t) => t.type === 'coffee');
+    const eng = Core.towers.find((t) => t.type === 'engineer');
+    const before = Core.effects.length;
+
+    Core.useCeoBonuses();
+
+    expect(Core.effects.slice(before).filter((fx) => fx.type === 'cashFly')).toHaveLength(1);
+    // damage/fireRate getters combine the CEO buff with a coffeeBuffTimer
+    // check — a coffee machine never attacks, but confirm the buff isn't
+    // even nominally "for" it by checking the underlying getters directly.
+    expect(coffee.damage).toBe(coffee.baseDamage * coffee.mult.dmg);
+    expect(eng.damage).toBeGreaterThan(eng.baseDamage * eng.mult.dmg);
+  });
 });
 
 describe('Core.auraDmgMultFor / auraRateMultFor — Distribute Bonuses buff', () => {
@@ -1008,27 +1028,81 @@ describe('Core.restart resets CEO run state but keeps the identity preferences',
   it('closes a still-open ability menu instead of leaving it floating over the fresh run (code-review catch)', () => {
     Game.UI.init(Core);
     Core.ceoMenuOpen = true;
+    Core.ceoMenuCastPending = true; // simulate a cast still awaiting its cooldown when restart() lands
     Game.UI.showCeoAbilityPanel(true);
     expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(false);
 
     Core.restart();
 
     expect(Core.ceoMenuOpen).toBe(false);
+    expect(Core.ceoMenuCastPending).toBe(false);
     expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
   });
 });
 
 describe('Core.gameOver closes a still-open ability menu (code-review catch)', () => {
-  it('hides the panel and clears ceoMenuOpen so it cannot reappear stuck behind the game-over screen', () => {
+  it('hides the panel and clears ceoMenuOpen/ceoMenuCastPending so it cannot reappear stuck behind the game-over screen', () => {
     Game.UI.init(Core);
     Core.state = 'playing';
     Core.ceoMenuOpen = true;
+    Core.ceoMenuCastPending = true;
     Game.UI.showCeoAbilityPanel(true);
     expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(false);
 
     Core.gameOver('bankrupt');
 
     expect(Core.ceoMenuOpen).toBe(false);
+    expect(Core.ceoMenuCastPending).toBe(false);
     expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
+  });
+});
+
+describe('Core.closeCeoMenu', () => {
+  it('is the single place that clears ceoMenuOpen, ceoMenuCastPending, and hides the panel together', () => {
+    Game.UI.init(Core);
+    Core.ceoMenuOpen = true;
+    Core.ceoMenuCastPending = true;
+    Game.UI.showCeoAbilityPanel(true);
+
+    Core.closeCeoMenu();
+
+    expect(Core.ceoMenuOpen).toBe(false);
+    expect(Core.ceoMenuCastPending).toBe(false);
+    expect(document.getElementById('ceoAbilityPanel').classList.contains('hidden')).toBe(true);
+  });
+});
+
+describe('Core.loop — CEO menu auto-close on cast-then-cooldown-finished', () => {
+  beforeEach(() => { Game.UI.init(Core); Core.state = 'playing'; Core.budget = 1000; });
+
+  it('does not auto-close a freshly-opened menu that nothing has been cast from yet', () => {
+    Core.ceoMenuOpen = true;
+    Game.UI.showCeoAbilityPanel(true);
+    Core.loop(performance.now());
+    expect(Core.ceoMenuOpen).toBe(true);
+  });
+
+  it('stays open while any cast ability is still on cooldown, closes once all of them clear', () => {
+    Core.ceoMenuOpen = true;
+    Game.UI.showCeoAbilityPanel(true);
+    Core.useCeoAllHands();
+    Core.useCeoBonuses();
+    // useCeoX() itself never touches ceoMenuCastPending — that's armed by
+    // the UI layer (a card click in ui.js, or the Q/W/E hotkey handler in
+    // game.js's bindInput) on a successful cast. Set it directly here since
+    // this test is exercising loop()'s auto-close logic in isolation.
+    Core.ceoMenuCastPending = true;
+
+    Core.loop(performance.now());
+    expect(Core.ceoMenuOpen).toBe(true); // both still on cooldown
+
+    Core.ceoAllHandsCooldown = 0; // one of the two clears...
+    Core.loop(performance.now());
+    expect(Core.ceoMenuOpen).toBe(true); // ...but the other doesn't, so still open
+
+    Core.ceoBonusesCooldown = 0; // now both clear
+    Core.loop(performance.now());
+    expect(Core.ceoMenuOpen).toBe(false);
+    expect(Core.ceoMenuCastPending).toBe(false);
   });
 });

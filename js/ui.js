@@ -208,14 +208,17 @@
   // role-gated or costed (see Core.getCeoAbilityState), so this panel
   // reuses the hire panel's card markup/CSS/cardClassFor/cooldownLabel
   // verbatim, just always showing all 3 with no lock/afford states.
+  // hotkey: also bound globally to Q/W/E in game.js's bindInput — kept in
+  // sync manually since there's only 3 of these and they're unlikely to
+  // change often; not worth deriving one list from the other.
   const CEO_ABILITIES = [
-    { key: 'allHands', name: 'All-Hands', icon: 'assets/enemies/bug.png', cast: (c) => c.useCeoAllHands() },
-    { key: 'bonuses', name: 'Distribute Bonuses', icon: 'assets/tiles/prop_ceo_coins.png', cast: (c) => c.useCeoBonuses() },
+    { key: 'allHands', name: 'All-Hands', icon: 'assets/enemies/bug.png', hotkey: 'Q', cast: (c) => c.useCeoAllHands() },
+    { key: 'bonuses', name: 'Distribute Bonuses', icon: 'assets/tiles/prop_ceo_coins.png', hotkey: 'W', cast: (c) => c.useCeoBonuses() },
     // showsRange: hovering this card previews its range ring on the board
     // (Core.ceoRangePreview, drawn in game.js's render()) — the only one of
     // the 3 abilities with a fixed distance that's actually useful to see
     // before committing to a cast.
-    { key: 'fixBugs', name: 'Fix Bugs', icon: 'assets/characters/qa_4.png', cast: (c) => c.useCeoFixBugs(), showsRange: true }
+    { key: 'fixBugs', name: 'Fix Bugs', icon: 'assets/characters/qa_4.png', hotkey: 'E', cast: (c) => c.useCeoFixBugs(), showsRange: true }
   ];
 
   function showCeoAbilityPanel(open) {
@@ -237,6 +240,7 @@
       btn.innerHTML = `
         <div class="card-cooldown"></div>
         <div class="card-cooldown-label"></div>
+        <div class="card-hotkey">${ability.hotkey}</div>
         <div class="card-icon"></div>
         <div class="card-name">${ability.name}</div>
       `;
@@ -249,9 +253,18 @@
       }
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        // Casting no longer closes the panel immediately — it stays open
+        // (armed via ceoMenuCastPending) so the player can watch this
+        // card's cooldown sweep finish; game.js's loop() auto-closes it
+        // once every cooldown is back at 0. Only arm that watch on an
+        // actual successful cast (stats.ceoAbilityUses ticking up), not a
+        // click that the cooldown/budget guard silently ate — otherwise a
+        // blocked click would immediately vanish the panel next frame
+        // (nothing changed, so "every cooldown is 0" is already true).
+        const usesBefore = core.stats.ceoAbilityUses;
         ability.cast(core);
-        core.ceoMenuOpen = false;
-        showCeoAbilityPanel(false);
+        if (core.stats.ceoAbilityUses > usesBefore) core.ceoMenuCastPending = true;
+        refreshCeoAbilityPanel();
       });
       panel.appendChild(btn);
     });
