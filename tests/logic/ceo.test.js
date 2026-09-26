@@ -4,8 +4,8 @@ import { loadGame } from '../helpers/loadGame.js';
 let Game, CFG, PATH, Core, Entities;
 
 beforeEach(() => {
-  // ceoGender/ceoName/ceoOnboarded persist via localStorage across
-  // loadGame() calls by design (see js/game.js's loadCeoGender etc.) —
+  // ceoGender/ceoName persist via localStorage across loadGame() calls by
+  // design (see js/game.js's loadCeoGender etc.) —
   // clear it so tests that don't care about identity aren't affected by
   // whatever a previous test in this file left behind.
   try { localStorage.clear(); } catch (e) { /* not available in every env */ }
@@ -110,13 +110,23 @@ describe('Core.ceoStateIndex — driven by current budget, not game progress', (
 });
 
 describe('Core.confirmIdentity', () => {
-  it('sets gender/name, mirrors gender onto stats, marks onboarded, and starts the game', () => {
+  it('sets gender/name, mirrors gender onto stats, and starts the game by default', () => {
     Core.confirmIdentity('Ada', 'female');
     expect(Core.ceoGender).toBe('female');
     expect(Core.ceoName).toBe('Ada');
     expect(Core.stats.ceoGender).toBe('female');
-    expect(Core.ceoOnboarded).toBe(true);
     expect(Core.state).toBe('playing');
+  });
+
+  it('dispatches to restart() instead of start() when pendingGameAction is "restart" (the Start Over flow)', () => {
+    const d = CFG.DESK_POSITIONS[0];
+    Core.hireAt(d.col, d.row, 'engineer');
+    Core.budget = 999;
+    Core.pendingGameAction = 'restart';
+    Core.confirmIdentity('Ada', 'female');
+    expect(Core.state).toBe('playing');
+    expect(Core.towers).toHaveLength(0); // restart() clears towers, start() would not
+    expect(Core.budget).toBe(CFG.START_BUDGET);
   });
 
   it('falls back to the current gender for an invalid value instead of rejecting the whole call', () => {
@@ -137,24 +147,21 @@ describe('Core.confirmIdentity', () => {
     expect(Core.ceoName).toBe('');
   });
 
-  it('persists gender/name/onboarded across a fresh load, unlike run-scoped CEO state', () => {
+  it('persists gender/name across a fresh load, unlike run-scoped CEO state — used only to pre-fill the picker, not to skip it', () => {
     Core.confirmIdentity('Ada', 'female');
     const reloaded = loadGame();
     expect(reloaded.Core.ceoGender).toBe('female');
     expect(reloaded.Core.ceoName).toBe('Ada');
-    expect(reloaded.Core.ceoOnboarded).toBe(true);
   });
 
-  it('an already-onboarded player calling it again re-persists the new values cleanly', () => {
+  it('calling it again (a second game in the same session) re-persists the new values cleanly', () => {
     Core.confirmIdentity('Ada', 'female');
     Core.confirmIdentity('Grace', 'male');
     expect(Core.ceoGender).toBe('male');
     expect(Core.ceoName).toBe('Grace');
-    expect(Core.ceoOnboarded).toBe(true);
     const reloaded = loadGame();
     expect(reloaded.Core.ceoGender).toBe('male');
     expect(reloaded.Core.ceoName).toBe('Grace');
-    expect(reloaded.Core.ceoOnboarded).toBe(true);
   });
 
   it('a whitespace-only name trims down to an empty string', () => {
@@ -519,7 +526,7 @@ describe('Core.auraRateMultFor — CEO buff + coffee aura interaction', () => {
 });
 
 describe('Core.restart resets CEO run state but keeps the identity preferences', () => {
-  it('resets ability/buff/income timers and per-run stats, keeps gender/name/onboarded', () => {
+  it('resets ability/buff/income timers and per-run stats, keeps gender/name', () => {
     Core.confirmIdentity('Ada', 'female');
     Core.ceoAbilityCooldown = 5000;
     Core.ceoBuffTimer = 2000;
@@ -531,7 +538,6 @@ describe('Core.restart resets CEO run state but keeps the identity preferences',
 
     expect(Core.ceoGender).toBe('female');
     expect(Core.ceoName).toBe('Ada');
-    expect(Core.ceoOnboarded).toBe(true);
     expect(Core.stats.ceoGender).toBe('female');
     expect(Core.ceoAbilityCooldown).toBe(0);
     expect(Core.ceoBuffTimer).toBe(0);

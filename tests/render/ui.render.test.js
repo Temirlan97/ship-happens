@@ -23,10 +23,11 @@ describe('UI.init', () => {
     expect(el('menuLeaderboardPanel').classList.contains('hidden')).toBe(true);
   });
 
-  it('wires the Play button to Core.start(), once the one-time identity picker is already done', () => {
-    Core.ceoOnboarded = true;
+  it('wires the Play button to show the identity picker rather than starting directly', () => {
     el('menuPlayBtn').click();
-    expect(Core.state).toBe('playing');
+    expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(false);
+    expect(Core.state).not.toBe('playing');
+    expect(Core.pendingGameAction).toBe('start');
   });
 
   it('wires the Play button to Core.togglePause() (as Resume) when a run is paused', () => {
@@ -614,53 +615,71 @@ describe('UI.renderLeaderboard', () => {
   });
 });
 
-describe('UI.init wires the pre-game name/gender picker', () => {
-  it('Play shows the picker instead of starting, when not yet onboarded', () => {
-    Core.ceoOnboarded = false;
+describe('UI.init wires the name/gender picker shown before every game', () => {
+  it('Play always shows the picker, even for a returning player with a saved identity', () => {
+    Core.confirmIdentity('Ada', 'female'); // simulates a previous game already played
+    Core.state = 'gameover';
+    UI.showScreen('menu');
     el('menuPlayBtn').click();
     expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(false);
-    expect(el('menuMain').classList.contains('hidden')).toBe(true);
     expect(Core.state).not.toBe('playing');
   });
 
-  it('Play starts the game directly once already onboarded', () => {
-    Core.ceoOnboarded = true;
+  it('pre-fills the name input and highlights the last-used gender portrait', () => {
+    Core.ceoName = 'Ada';
+    Core.ceoGender = 'female';
     el('menuPlayBtn').click();
-    expect(Core.state).toBe('playing');
+    expect(el('ceoNameInput').value).toBe('Ada');
+    expect(el('ceoPortraitFemaleBtn').classList.contains('selected')).toBe(true);
+    expect(el('ceoPortraitMaleBtn').classList.contains('selected')).toBe(false);
   });
 
   it('clicking a portrait confirms identity and starts the game', () => {
-    Core.ceoOnboarded = false;
     el('menuPlayBtn').click();
     el('ceoNameInput').value = 'Ada';
     el('ceoPortraitFemaleBtn').click();
     expect(Core.ceoGender).toBe('female');
     expect(Core.ceoName).toBe('Ada');
-    expect(Core.ceoOnboarded).toBe(true);
     expect(Core.state).toBe('playing');
   });
 
+  it('Start Over also routes through the picker (confirmed via the "are you sure" dialog first)', () => {
+    Core.confirmIdentity('Ada', 'female');
+    Core.state = 'paused';
+    UI.showScreen('menu');
+    el('menuStartOverBtn').classList.remove('hidden');
+    el('menuStartOverBtn').click();
+    expect(el('confirmDialog').classList.contains('hidden')).toBe(false);
+    expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(true); // not shown until confirmed
+
+    el('confirmOkBtn').click();
+    expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(false);
+    expect(Core.pendingGameAction).toBe('restart');
+
+    el('ceoNameInput').value = 'Grace';
+    el('ceoPortraitMaleBtn').click();
+    expect(Core.ceoName).toBe('Grace');
+    expect(Core.ceoGender).toBe('male');
+    expect(Core.state).toBe('playing');
+    expect(Core.budget).toBe(CFG.START_BUDGET); // a real restart happened, not just start()
+  });
+
   it('the name is mandatory — an empty name blocks confirmation and shows an inline error', () => {
-    Core.ceoOnboarded = false;
     el('menuPlayBtn').click();
     el('ceoNameInput').value = '';
     el('ceoPortraitMaleBtn').click();
-    expect(Core.ceoOnboarded).toBe(false);
     expect(Core.state).not.toBe('playing');
     expect(el('ceoNameError').classList.contains('hidden')).toBe(false);
   });
 
   it('a whitespace-only name is treated as empty and still blocked', () => {
-    Core.ceoOnboarded = false;
     el('menuPlayBtn').click();
     el('ceoNameInput').value = '   ';
     el('ceoPortraitMaleBtn').click();
-    expect(Core.ceoOnboarded).toBe(false);
     expect(el('ceoNameError').classList.contains('hidden')).toBe(false);
   });
 
   it('typing after a blocked attempt clears the error', () => {
-    Core.ceoOnboarded = false;
     el('menuPlayBtn').click();
     el('ceoPortraitMaleBtn').click(); // blocked, error shown
     el('ceoNameInput').value = 'A';
@@ -669,7 +688,6 @@ describe('UI.init wires the pre-game name/gender picker', () => {
   });
 
   it('pressing Enter in the name field confirms with the current gender', () => {
-    Core.ceoOnboarded = false;
     Core.ceoGender = 'male';
     el('menuPlayBtn').click();
     el('ceoNameInput').value = 'Sam';
@@ -679,7 +697,7 @@ describe('UI.init wires the pre-game name/gender picker', () => {
     expect(Core.state).toBe('playing');
   });
 
-  it('resuming from pause always just resumes, regardless of onboarded status (the paused branch short-circuits before the onboarding check)', () => {
+  it('resuming from pause never shows the picker (short-circuits before beginNewGame is ever called)', () => {
     Core.confirmIdentity('Ada', 'female');
     Core.state = 'paused';
     UI.showScreen('menu');
@@ -688,8 +706,7 @@ describe('UI.init wires the pre-game name/gender picker', () => {
     expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(true);
   });
 
-  it('the picker has a way back to the main menu instead of trapping a first-time player', () => {
-    Core.ceoOnboarded = false;
+  it('the picker has a way back to the main menu instead of trapping the player', () => {
     el('menuPlayBtn').click();
     expect(el('menuNamePickPanel').classList.contains('hidden')).toBe(false);
     el('namePickBackBtn').click();

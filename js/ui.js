@@ -9,7 +9,7 @@
 
   function init(coreRef) {
     core = coreRef;
-    el('restartBtn').addEventListener('click', () => core.restart());
+    el('restartBtn').addEventListener('click', () => beginNewGame('restart'));
     el('nextSprintBtn').addEventListener('click', () => core.requestNextWave());
     el('pauseBtn').addEventListener('click', () => core.togglePause());
     el('muteBtn').addEventListener('click', () => core.toggleMute());
@@ -20,11 +20,7 @@
     el('hirePanel').addEventListener('pointerdown', (e) => e.stopPropagation());
     el('menuPlayBtn').addEventListener('click', () => {
       if (core.state === 'paused') { core.togglePause(); return; }
-      // The name/gender picker is a one-time, pre-game step (see
-      // Core.confirmIdentity) — every Play press after that goes straight
-      // into a fresh game, same as before this feature existed.
-      if (!core.ceoOnboarded) { showMenuPanel('namepick'); return; }
-      core.start();
+      beginNewGame('start');
     });
     el('menuInstructionsBtn').addEventListener('click', () => showMenuPanel('instructions'));
     el('menuLeaderboardBtn').addEventListener('click', () => showMenuPanel('leaderboard'));
@@ -37,7 +33,7 @@
     el('feedbackInput').addEventListener('input', () => updateFeedbackCounter());
     el('feedbackSubmitBtn').addEventListener('click', () => submitFeedback());
     el('menuStartOverBtn').addEventListener('click', () => {
-      core.openConfirmDialog('Your current run will be lost — budget, hires, and progress all reset.', () => core.restart());
+      core.openConfirmDialog('Your current run will be lost — budget, hires, and progress all reset.', () => beginNewGame('restart'));
     });
     el('confirmCancelBtn').addEventListener('click', () => core.closeConfirmDialog(false));
     el('confirmOkBtn').addEventListener('click', () => core.closeConfirmDialog(true));
@@ -385,11 +381,38 @@
     el('menuFeedbackPanel').classList.toggle('hidden', name !== 'feedback');
     if (name === 'leaderboard') showMenuLeaderboard();
     if (name === 'feedback') resetFeedbackPanel();
-    if (name === 'namepick') { el('ceoNameError').classList.add('hidden'); el('ceoNameInput').focus(); }
+    if (name === 'namepick') {
+      el('ceoNameError').classList.add('hidden');
+      // Pre-filled with last time's choice — the picker shows before every
+      // game now (see beginNewGame), so defaulting to what was last picked
+      // is what makes "just click through again" possible while still
+      // giving a real chance to change it.
+      el('ceoNameInput').value = core.ceoName || '';
+      el('ceoPortraitMaleBtn').classList.toggle('selected', core.ceoGender === 'male');
+      el('ceoPortraitFemaleBtn').classList.toggle('selected', core.ceoGender === 'female');
+      el('ceoNameInput').focus();
+      el('ceoNameInput').select();
+    }
   }
 
-  // The name is mandatory (see CLAUDE.md — it's what lets a qualifying run
-  // skip asking again at game-over) — validated here rather than inside
+  // The one and only entry point for starting a genuinely new game (fresh
+  // Play, or confirmed Start Over) — always routes through the identity
+  // picker first, never skips it, so name/gender can be changed every time
+  // rather than being locked in after the first game. `action` is which
+  // Core method the picker's confirm should ultimately perform.
+  function beginNewGame(action) {
+    core.pendingGameAction = action;
+    // showScreen('menu') is needed too, not just showMenuPanel — the
+    // game-over screen's "Try Again" button also routes through here, and
+    // that's a different top-level screen (screen-gameover) than the one
+    // the picker's sub-panel lives in. showScreen('menu') itself forces
+    // showMenuPanel('main') as a side effect, so showMenuPanel('namepick')
+    // has to come after, not before, to actually win.
+    showScreen('menu');
+    showMenuPanel('namepick');
+  }
+
+  // The name is mandatory — validated here rather than inside
   // Core.confirmIdentity so the "show an inline error" concern stays a UI
   // one, not a Core one.
   function tryConfirmIdentity(gender) {

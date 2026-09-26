@@ -489,7 +489,7 @@ describe('misc small Core methods not otherwise exercised', () => {
     // Start Over now lives inside the pause menu (see the "main menu"
     // describe block below) — it's only ever clicked while state is
     // already 'paused', not directly from 'playing'.
-    it('the menu Start Over button opens the dialog, and confirming it actually restarts the run', () => {
+    it('the menu Start Over button opens the dialog, and confirming it shows the identity picker, which then actually restarts the run', () => {
       const d = CFG.DESK_POSITIONS[0];
       Core.hireAt(d.col, d.row, 'engineer');
       Core.state = 'paused';
@@ -498,10 +498,18 @@ describe('misc small Core methods not otherwise exercised', () => {
       expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(false);
 
       document.getElementById('confirmOkBtn').click();
+      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
+      // Confirming Start Over shows the identity picker rather than
+      // restarting immediately — every new game gets a chance to change
+      // name/gender, "Start Over" included.
+      expect(document.getElementById('menuNamePickPanel').classList.contains('hidden')).toBe(false);
+      expect(Core.towers).toHaveLength(1); // not yet restarted
+
+      document.getElementById('ceoNameInput').value = 'Ada';
+      document.getElementById('ceoPortraitMaleBtn').click();
       expect(Core.towers).toHaveLength(0);
       expect(Core.budget).toBe(CFG.START_BUDGET);
       expect(Core.state).toBe('playing');
-      expect(document.getElementById('confirmDialog').classList.contains('hidden')).toBe(true);
     });
 
     it('the cancel button closes the dialog without restarting', () => {

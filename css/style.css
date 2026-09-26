@@ -329,6 +329,10 @@ html, body {
 }
 .ceo-portrait-btn img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .ceo-portrait-btn:hover { border-color: var(--accent-green); background: #24304a; transform: translateY(-2px); }
+/* Pre-highlights whichever gender was picked last time — the picker shows
+   before every game now, so this just makes "click through again" fast
+   without hiding that the other one is still a real, equally-live choice. */
+.ceo-portrait-btn.selected { border-color: var(--accent-green); box-shadow: 0 0 0 1px var(--accent-green); }
 .menu-actions {
   display: flex;
   flex-direction: column;

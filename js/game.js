@@ -47,16 +47,6 @@
   function saveCeoName(n) {
     try { localStorage.setItem('ship_happens_ceo_name', n); } catch (e) { /* file:// storage can be unavailable */ }
   }
-  // Separate from gender/name themselves (which always have a value — a
-  // coin-flip default, an empty string) so "has the player ever actually
-  // gone through the picker" is its own explicit fact, not inferred.
-  function loadCeoOnboarded() {
-    try { return localStorage.getItem('ship_happens_ceo_onboarded') === '1'; }
-    catch (e) { return false; }
-  }
-  function saveCeoOnboarded() {
-    try { localStorage.setItem('ship_happens_ceo_onboarded', '1'); } catch (e) { /* file:// storage can be unavailable */ }
-  }
   const Core = {
     state: 'start', // start | playing | paused | gameover
     budget: CFG.START_BUDGET,
@@ -80,12 +70,16 @@
     // as telemetry for later.
     stats: { income: 0, salaries: 0, lost: 0, kills: 0, ceoGender: null, ceoAbilityUses: 0, ceoCrisisMs: 0, ceoPeakState: 0 },
     // CEO run state — cooldown/buff timers and per-run counters reset on
-    // restart(); ceoGender/ceoName/ceoOnboarded do not, they're persisted
-    // preferences (see loadCeoGender/loadCeoName/loadCeoOnboarded above),
-    // set here once at boot.
+    // restart(); ceoGender/ceoName do not, they're persisted preferences
+    // (see loadCeoGender/loadCeoName above) used only to pre-fill the
+    // picker — set here once at boot. The picker itself shows before
+    // EVERY game (see beginNewGame in ui.js), not just the first ever;
+    // persistence is purely a convenience default, not a skip-it flag.
     ceoGender: loadCeoGender(),
     ceoName: loadCeoName(),
-    ceoOnboarded: loadCeoOnboarded(),
+    // 'start' | 'restart' — which action the currently-open identity
+    // picker should perform on confirm (see ui.js's beginNewGame).
+    pendingGameAction: 'start',
     ceoAbilityCooldown: 0,
     ceoBuffTimer: 0,
     ceoIncomeTimer: 0,
@@ -117,24 +111,27 @@
       requestAnimationFrame(this.loop.bind(this));
     },
 
-    // The one-time pre-game picker's confirm action (see the menuNamePick
-    // panel/ui.js) — name is purely cosmetic/local (used in a couple of
-    // flavor toasts, see updateCeo), never sent anywhere, so no filtering
-    // needed the way the leaderboard's player_name gets. Persists so this
-    // is only ever asked once per browser, then calls start() to actually
-    // begin the run — this method IS the "Play" action for a first-time
-    // player, not a separate step before it.
+    // The identity picker's confirm action (see the menuNamePick panel /
+    // ui.js's beginNewGame) — shown before every game, not just the first
+    // ever, so the player always gets a chance to change name/gender
+    // rather than being stuck with whatever they picked once. Name is
+    // purely cosmetic/local (used in a couple of flavor toasts, see
+    // updateCeo), never sent anywhere, so no filtering needed the way the
+    // leaderboard's player_name gets — still persisted, purely so the
+    // picker can pre-fill with last time's choice as a convenience.
+    // Dispatches to start() or restart() based on pendingGameAction,
+    // which whichever button opened the picker (Play vs. Start Over) set
+    // beforehand — this method IS that action, not a separate step before it.
     confirmIdentity(name, gender) {
       const g = (gender === 'male' || gender === 'female') ? gender : this.ceoGender;
       const trimmedName = (typeof name === 'string' ? name.trim() : '').slice(0, 20);
       this.ceoGender = g;
       this.ceoName = trimmedName;
       this.stats.ceoGender = g;
-      this.ceoOnboarded = true;
       saveCeoGender(g);
       saveCeoName(trimmedName);
-      saveCeoOnboarded();
-      this.start();
+      if (this.pendingGameAction === 'restart') this.restart();
+      else this.start();
     },
 
     // 0-5, driven entirely by state Core already tracks for other reasons —
