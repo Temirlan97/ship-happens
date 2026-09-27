@@ -772,14 +772,19 @@ describe('leaderboard integration', () => {
     await vi.waitFor(() => expect(showSpy).toHaveBeenCalledWith(5));
   });
 
-  it('gameOver does not show the name dialog when not eligible', async () => {
+  it('gameOver does not show the name dialog when not eligible, but still silently records the known name for admin visibility', async () => {
+    Core.ceoName = 'Ada';
     const finishRunPromise = Promise.resolve({ qualifiesForName: false, rank: null });
     vi.spyOn(Game.Leaderboard, 'finishRun').mockReturnValue(finishRunPromise);
     vi.spyOn(Game.Leaderboard, 'fetchLeaderboard').mockResolvedValue([]);
     const showSpy = vi.spyOn(Game.UI, 'showNameDialog').mockImplementation(() => {});
+    const toastSpy = vi.spyOn(Game.UI, 'showToast').mockImplementation(() => {});
+    const submitSpy = vi.spyOn(Game.Leaderboard, 'submitName').mockResolvedValue({ ok: true, name: 'Ada' });
     Core.gameOver();
     await finishRunPromise; // wait for the exact same promise gameOver's own .then() is chained onto
     expect(showSpy).not.toHaveBeenCalled();
+    expect(toastSpy).not.toHaveBeenCalled();
+    expect(submitSpy).toHaveBeenCalledWith('Ada');
   });
 
   it('submitLeaderboardName hides the dialog and refreshes the board on success', async () => {

@@ -1110,11 +1110,19 @@
       // case the server-side name filter rejects it (the picker's name
       // isn't filtered client-side, only the leaderboard submission is).
       window.Game.Leaderboard.finishRun(this.lastReachedSprint, this.budget, this.stats, reason).then((res) => {
-        if (!res || !res.qualifiesForName) return;
-        this.submitLeaderboardName(this.ceoName).then((r) => {
-          if (r && r.ok) window.Game.UI.showToast(`Added to the leaderboard as ${this.ceoDisplayName}!`);
-          else window.Game.UI.showNameDialog(res.rank);
-        });
+        if (!res) return;
+        if (res.qualifiesForName) {
+          this.submitLeaderboardName(this.ceoName).then((r) => {
+            if (r && r.ok) window.Game.UI.showToast(`Added to the leaderboard as ${this.ceoDisplayName}!`);
+            else window.Game.UI.showNameDialog(res.rank);
+          });
+        } else {
+          // Doesn't qualify for the public top 10, so no toast/dialog — but
+          // the admin dashboard lists every run, not just leaderboard
+          // qualifiers, and shouldn't be blind to who played a run just
+          // because it didn't rank. Silent, best-effort only.
+          window.Game.Leaderboard.submitName(this.ceoName);
+        }
       });
       window.Game.Leaderboard.fetchLeaderboard().then((entries) => window.Game.UI.renderLeaderboard(entries));
     },
